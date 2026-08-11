@@ -3,7 +3,8 @@ from typing import List
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-                             QTabWidget, QFileDialog, QMessageBox, QLabel, QStatusBar)
+                             QTabWidget, QFileDialog, QMessageBox, QLabel, QStatusBar, QPushButton)
+
 
 from app.core.image_document import ImageDocument
 from app.core.layer import Layer
