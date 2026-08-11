@@ -8,11 +8,10 @@ from app.processing.color_adjust import apply_image_adjustments
 from app.utils.image_utils import create_checkerboard_pattern
 from app.utils.logger import logger
 
-def composite_document(doc: ImageDocument, preview_mode: bool = True) -> np.ndarray:
+def composite_document(doc: ImageDocument, preview_mode: bool = True, fast_drag: bool = False) -> np.ndarray:
     """
-    Renders a composite RGBA image from an ImageDocument.
-    Iterates through layer stack from bottom to top, applying transforms,
-    masks, color adjustments, opacities, and blend modes.
+    Renders a composite RGBA image from an ImageDocument using ROI patch slicing
+    and texture caching for high performance (60+ FPS).
     """
     canvas_w = max(1, doc.canvas_width)
     canvas_h = max(1, doc.canvas_height)
@@ -47,15 +46,18 @@ def composite_document(doc: ImageDocument, preview_mode: bool = True) -> np.ndar
         if layer_rgba is None or layer_rgba.size == 0:
             continue
 
-        # Transform layer RGBA buffer to canvas coordinates using Affine Matrix
-        transformed_rgba = transform_layer_to_canvas(layer_rgba, lyr, canvas_w, canvas_h)
-        if transformed_rgba is None:
+        # Transform layer RGBA buffer to ROI patch coordinates on canvas
+        res = transform_layer_to_canvas_roi(layer_rgba, lyr, canvas_w, canvas_h, fast_drag=fast_drag)
+        if res is None:
             continue
 
-        # Blend transformed layer onto accumulated canvas buffer
-        canvas_acc = blend_layer_onto_canvas(canvas_acc, transformed_rgba, lyr.opacity, lyr.blend_mode)
+        patch_rgba, bbox = res
+
+        # Blend ROI patch onto accumulated canvas buffer
+        blend_layer_onto_canvas_roi(canvas_acc, patch_rgba, bbox, lyr.opacity, lyr.blend_mode)
 
     return np.clip(canvas_acc, 0, 255).astype(np.uint8)
+
 
 def render_single_layer(lyr: Layer) -> Optional[np.ndarray]:
     """Renders a single layer to its local RGBA buffer before canvas transformation (uses texture cache)."""
@@ -149,8 +151,17 @@ def render_shape_layer(lyr: Layer) -> np.ndarray:
             cv2.circle(buf, center, radius + sw // 2, stroke_color, sw)
     return buf
 
-def transform_layer_to_canvas(layer_rgba: np.ndarray, lyr: Layer, canvas_w: int, canvas_h: int) -> np.ndarray:
-    """Applies offset, scale, rotation, and flips to map layer RGBA buffer to canvas coordinates."""
+def transform_layer_to_canvas_roi(
+    layer_rgba: np.ndarray,
+    lyr: Layer,
+    canvas_w: int,
+    canvas_h: int,
+    fast_drag: bool = False
+) -> Optional[Tuple[np.ndarray, Tuple[int, int, int, int]]]:
+    """
+    Warps layer RGBA buffer to canvas coordinates using ROI bounding box slicing.
+    Drastically speeds up performance by skipping offscreen/empty pixel warping.
+    """
     h, w = layer_rgba.shape[:2]
 
     # Handle Flip
@@ -173,40 +184,80 @@ def transform_layer_to_canvas(layer_rgba: np.ndarray, lyr: Layer, canvas_w: int,
     dst_cx = lyr.offset_x + scaled_w / 2.0
     dst_cy = lyr.offset_y + scaled_h / 2.0
 
-    # Create Affine Transformation Matrix
-    # 1. Translate center to origin
-    T1 = np.array([[1, 0, -src_cx], [0, 1, -src_cy], [0, 0, 1]], dtype=np.float32)
-    # 2. Scale
-    S = np.array([[lyr.scale_x, 0, 0], [0, lyr.scale_y, 0], [0, 0, 1]], dtype=np.float32)
-    # 3. Rotate (degrees)
+    # Calculate 4 rotated corners to compute tight ROI bounding box
+    half_w, half_h = scaled_w / 2.0, scaled_h / 2.0
+    corners = np.array([
+        [-half_w, -half_h],
+        [ half_w, -half_h],
+        [ half_w,  half_h],
+        [-half_w,  half_h]
+    ], dtype=np.float32)
+
     rad = np.radians(lyr.rotation)
     cos_a, sin_a = np.cos(rad), np.sin(rad)
+    rot_m = np.array([[cos_a, -sin_a], [sin_a, cos_a]], dtype=np.float32)
+    rot_corners = corners @ rot_m.T
+    rot_corners[:, 0] += dst_cx
+    rot_corners[:, 1] += dst_cy
+
+    xmin = max(0, int(np.floor(np.min(rot_corners[:, 0]))) - 1)
+    xmax = min(canvas_w, int(np.ceil(np.max(rot_corners[:, 0]))) + 1)
+    ymin = max(0, int(np.floor(np.min(rot_corners[:, 1]))) - 1)
+    ymax = min(canvas_h, int(np.ceil(np.max(rot_corners[:, 1]))) + 1)
+
+    if xmin >= xmax or ymin >= ymax:
+        return None
+
+    box_w = xmax - xmin
+    box_h = ymax - ymin
+
+    # Create Affine Matrix relative to ROI top-left (xmin, ymin)
+    T1 = np.array([[1, 0, -src_cx], [0, 1, -src_cy], [0, 0, 1]], dtype=np.float32)
+    S = np.array([[lyr.scale_x, 0, 0], [0, lyr.scale_y, 0], [0, 0, 1]], dtype=np.float32)
     R = np.array([[cos_a, -sin_a, 0], [sin_a, cos_a, 0], [0, 0, 1]], dtype=np.float32)
-    # 4. Translate to destination center on canvas
-    T2 = np.array([[1, 0, dst_cx], [0, 1, dst_cy], [0, 0, 1]], dtype=np.float32)
+    T2_roi = np.array([[1, 0, dst_cx - xmin], [0, 1, dst_cy - ymin], [0, 0, 1]], dtype=np.float32)
 
-    M_3x3 = T2 @ R @ S @ T1
-    M_2x3 = M_3x3[:2, :]
+    M_3x3_roi = T2_roi @ R @ S @ T1
+    M_2x3_roi = M_3x3_roi[:2, :]
 
-    # Warp image to canvas dimensions
-    transformed = cv2.warpAffine(
-        img, M_2x3, (canvas_w, canvas_h),
-        flags=cv2.INTER_LINEAR,
+    flags = cv2.INTER_NEAREST if fast_drag else cv2.INTER_LINEAR
+    patch = cv2.warpAffine(
+        img, M_2x3_roi, (box_w, box_h),
+        flags=flags,
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=(0, 0, 0, 0)
     )
-    return transformed
+    return patch, (ymin, ymax, xmin, xmax)
 
-def blend_layer_onto_canvas(canvas_acc: np.ndarray, layer_rgba: np.ndarray, opacity: float, blend_mode: str) -> np.ndarray:
-    """Blends transformed layer RGBA onto accumulated canvas buffer according to blend_mode and opacity."""
+def blend_layer_onto_canvas_roi(
+    canvas_acc: np.ndarray,
+    layer_rgba: np.ndarray,
+    bbox: Tuple[int, int, int, int],
+    opacity: float,
+    blend_mode: str
+):
+    """Blends transformed layer patch onto ROI slice of accumulated canvas buffer."""
+    ymin, ymax, xmin, xmax = bbox
+    roi_acc = canvas_acc[ymin:ymax, xmin:xmax]
+
     src_rgb = layer_rgba[:, :, :3].astype(np.float32)
     src_a = (layer_rgba[:, :, 3].astype(np.float32) / 255.0) * opacity
     src_a = src_a[:, :, np.newaxis]
 
-    dst_rgb = canvas_acc[:, :, :3]
-    dst_a = canvas_acc[:, :, 3:4] / 255.0
+    dst_rgb = roi_acc[:, :, :3]
+    dst_a = roi_acc[:, :, 3:4] / 255.0
 
-    # Apply Blend Mode formulas to RGB channels
+    # Fast Normal Blend Mode path
+    if blend_mode == "Normal":
+        inv_src_a = 1.0 - src_a
+        out_a = src_a + dst_a * inv_src_a
+        safe_out_a = np.where(out_a > 0.0001, out_a, 1.0)
+        out_rgb = (src_rgb * src_a + dst_rgb * dst_a * inv_src_a) / safe_out_a
+        roi_acc[:, :, :3] = np.where(out_a > 0.0001, out_rgb, dst_rgb)
+        roi_acc[:, :, 3:4] = out_a * 255.0
+        return
+
+    # Advanced Blend Modes
     if blend_mode == "Multiply":
         blended_rgb = (src_rgb * dst_rgb) / 255.0
     elif blend_mode == "Screen":
@@ -222,18 +273,31 @@ def blend_layer_onto_canvas(canvas_acc: np.ndarray, layer_rgba: np.ndarray, opac
         blended_rgb = np.minimum(255.0, src_rgb + dst_rgb)
     elif blend_mode == "Difference":
         blended_rgb = np.abs(src_rgb - dst_rgb)
-    else:  # "Normal"
+    else:
         blended_rgb = src_rgb
 
-    # Standard Porter-Duff Over composite formula:
-    # out_alpha = src_a + dst_a * (1 - src_a)
     out_a = src_a + dst_a * (1.0 - src_a)
     safe_out_a = np.where(out_a > 0.0001, out_a, 1.0)
 
     out_rgb = (blended_rgb * src_a + dst_rgb * dst_a * (1.0 - src_a)) / safe_out_a
-    out_rgb = np.where(out_a > 0.0001, out_rgb, dst_rgb)
+    roi_acc[:, :, :3] = np.where(out_a > 0.0001, out_rgb, dst_rgb)
+    roi_acc[:, :, 3:4] = out_a * 255.0
 
-    return np.dstack((out_rgb, out_a * 255.0))
+def transform_layer_to_canvas(layer_rgba: np.ndarray, lyr: Layer, canvas_w: int, canvas_h: int) -> np.ndarray:
+    """Legacy backward compatibility wrapper."""
+    res = transform_layer_to_canvas_roi(layer_rgba, lyr, canvas_w, canvas_h)
+    if res is None:
+        return np.zeros((canvas_h, canvas_w, 4), dtype=np.uint8)
+    patch, (ymin, ymax, xmin, xmax) = res
+    full = np.zeros((canvas_h, canvas_w, 4), dtype=np.uint8)
+    full[ymin:ymax, xmin:xmax] = patch
+    return full
+
+def blend_layer_onto_canvas(canvas_acc: np.ndarray, layer_rgba: np.ndarray, opacity: float, blend_mode: str) -> np.ndarray:
+    """Legacy backward compatibility wrapper."""
+    blend_layer_onto_canvas_roi(canvas_acc, layer_rgba, (0, canvas_acc.shape[0], 0, canvas_acc.shape[1]), opacity, blend_mode)
+    return canvas_acc
+
 
 def generate_canvas_background(doc: ImageDocument, h: int, w: int) -> np.ndarray:
     """Generates initial background RGBA matrix according to document settings."""

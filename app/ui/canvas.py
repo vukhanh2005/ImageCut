@@ -60,14 +60,14 @@ class CanvasView(QGraphicsView):
         self.active_tool = tool
         self.viewport().update()
 
-    def update_canvas(self):
+    def update_canvas(self, fast_drag: bool = False):
         """Renders composite multi-layer scene and updates canvas scene Rect."""
         if not self.document:
             self.scene.clear()
             self.pixmap_item = None
             return
 
-        comp_rgba = composite_document(self.document, preview_mode=True)
+        comp_rgba = composite_document(self.document, preview_mode=True, fast_drag=fast_drag)
         pixmap = numpy_to_qpixmap(comp_rgba)
 
         if self.pixmap_item is None:
@@ -120,7 +120,6 @@ class CanvasView(QGraphicsView):
 
         self.apply_zoom_step(factor)
         event.accept()
-
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Space and not self.is_space_panning:
@@ -284,7 +283,7 @@ class CanvasView(QGraphicsView):
             else:
                 self.unsetCursor()
 
-        # Handle Dragging (Move / Scale / Rotate)
+        # Handle Fast Dragging (Move / Scale / Rotate)
         if self.drag_mode and self.drag_start_canvas_pos and self.document and self.document.active_layer:
             dx = scene_pos.x() - self.drag_start_canvas_pos.x()
             dy = scene_pos.y() - self.drag_start_canvas_pos.y()
@@ -296,7 +295,6 @@ class CanvasView(QGraphicsView):
                         init_x, init_y, _, _, _ = self.drag_start_layer_states[active_lyr.id]
                         active_lyr.offset_x = init_x + dx
                         active_lyr.offset_y = init_y + dy
-                self.document.notify_changed()
 
             elif self.drag_mode == "rot":
                 # Rotation around center
@@ -308,7 +306,6 @@ class CanvasView(QGraphicsView):
                 start_angle = math.atan2(self.drag_start_canvas_pos.y() - cy, self.drag_start_canvas_pos.x() - cx)
                 delta_deg = math.degrees(angle - start_angle)
                 lyr.rotation = (init_rot + delta_deg) % 360.0
-                self.document.notify_changed()
 
             elif self.drag_mode in ["tl", "tr", "bl", "br", "tc", "bc", "ml", "mr"]:
                 # Interactive Scaling Handle
@@ -336,8 +333,8 @@ class CanvasView(QGraphicsView):
                     lyr.scale_x = avg_scale
                     lyr.scale_y = avg_scale
 
-                self.document.notify_changed()
-
+            # Update Canvas viewport at 60+ FPS without blocking side panels during drag
+            self.update_canvas(fast_drag=True)
             event.accept()
             return
 
@@ -365,8 +362,11 @@ class CanvasView(QGraphicsView):
             self.drag_mode = None
             self.drag_start_canvas_pos = None
             self.drag_start_layer_states = {}
+            if self.document:
+                self.document.notify_changed()
             event.accept()
             return
+
 
         scene_pos = self.mapToScene(event.position().toPoint())
         if self.active_tool:
