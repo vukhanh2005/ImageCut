@@ -229,39 +229,52 @@ class LayerManagerPanel(QWidget):
         self.btn_bot.clicked.connect(lambda: self.document and self.document.move_layer_bottom())
 
     def update_panel(self):
-        """Refreshes layer list items and selection state from Document model."""
+        """Refreshes layer list items and selection state from Document model efficiently."""
         if not self.document or self._is_updating_ui:
             return
 
         self._is_updating_ui = True
         try:
-            self.layer_list.clear()
+            doc_layer_ids_reversed = [lyr.id for lyr in reversed(self.document.layers)]
+            current_item_ids = [self.layer_list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.layer_list.count())]
 
-            # Render items in reverse order (Top layer at top of QListWidget)
-            for lyr in reversed(self.document.layers):
-                item = QListWidgetItem(self.layer_list)
-                item.setSizeHint(QSize(0, 36))
-                item.setData(Qt.ItemDataRole.UserRole, lyr.id)
+            # Only rebuild list items if layer structure/order/count changed
+            if doc_layer_ids_reversed != current_item_ids:
+                self.layer_list.clear()
 
-                item_widget = LayerItemWidget(lyr)
-                item_widget.visibility_changed.connect(self._on_item_visibility_changed)
-                item_widget.lock_changed.connect(self._on_item_lock_changed)
-                item_widget.name_changed.connect(self._on_item_name_changed)
+                # Render items in reverse order (Top layer at top of QListWidget)
+                for lyr in reversed(self.document.layers):
+                    item = QListWidgetItem(self.layer_list)
+                    item.setSizeHint(QSize(0, 36))
+                    item.setData(Qt.ItemDataRole.UserRole, lyr.id)
 
-                self.layer_list.setItemWidget(item, item_widget)
+                    item_widget = LayerItemWidget(lyr)
+                    item_widget.visibility_changed.connect(self._on_item_visibility_changed)
+                    item_widget.lock_changed.connect(self._on_item_lock_changed)
+                    item_widget.name_changed.connect(self._on_item_name_changed)
 
-                # Set selection state
-                if lyr.id in self.document.active_layer_ids:
-                    item.setSelected(True)
+                    self.layer_list.setItemWidget(item, item_widget)
+
+            # Update selection state
+            for i in range(self.layer_list.count()):
+                item = self.layer_list.item(i)
+                lid = item.data(Qt.ItemDataRole.UserRole)
+                item.setSelected(lid in self.document.active_layer_ids)
 
             # Update Opacity & Blend Mode from active layer
             active = self.document.active_layer
             if active:
+                self.slider_opacity.blockSignals(True)
                 self.slider_opacity.setValue(int(active.opacity * 100))
                 self.lbl_opac_val.setText(f"{int(active.opacity * 100)}%")
+                self.slider_opacity.blockSignals(False)
+
+                self.cmb_blend_mode.blockSignals(True)
                 self.cmb_blend_mode.setCurrentText(active.blend_mode)
+                self.cmb_blend_mode.blockSignals(False)
         finally:
             self._is_updating_ui = False
+
 
     def _on_selection_changed(self):
         if self._is_updating_ui or not self.document:

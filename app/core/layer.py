@@ -73,6 +73,16 @@ class Layer:
         self.stroke_color: Tuple[int, int, int, int] = (255, 255, 255, 255)
         self.stroke_width: int = 2
 
+        # Cache & Performance Optimization Flags
+        self._cached_rgba: Optional[np.ndarray] = None
+        self._dirty: bool = True
+
+    def invalidate_cache(self):
+        """Marks the layer texture cache as dirty so it will be re-processed."""
+        self._dirty = True
+        self._cached_rgba = None
+
+
     def width(self) -> int:
         if self.image is not None:
             return self.image.shape[1]

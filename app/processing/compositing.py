@@ -58,10 +58,14 @@ def composite_document(doc: ImageDocument, preview_mode: bool = True) -> np.ndar
     return np.clip(canvas_acc, 0, 255).astype(np.uint8)
 
 def render_single_layer(lyr: Layer) -> Optional[np.ndarray]:
-    """Renders a single layer to its local RGBA buffer before canvas transformation."""
+    """Renders a single layer to its local RGBA buffer before canvas transformation (uses texture cache)."""
     if lyr.layer_type == "image":
         if lyr.image is None:
             return None
+
+        # Return cached texture if layer content/mask/adjustments haven't changed
+        if not lyr._dirty and lyr._cached_rgba is not None:
+            return lyr._cached_rgba
 
         fg_rgb = lyr.image.copy()
         h, w = fg_rgb.shape[:2]
@@ -96,7 +100,11 @@ def render_single_layer(lyr: Layer) -> Optional[np.ndarray]:
         if lyr.decontaminate:
             fg_rgb = MaskProcessor.decontaminate_colors(fg_rgb, mask)
 
-        return np.dstack((fg_rgb, mask))
+        rgba_res = np.dstack((fg_rgb, mask))
+        lyr._cached_rgba = rgba_res
+        lyr._dirty = False
+        return rgba_res
+
 
     elif lyr.layer_type == "text":
         return render_text_layer(lyr)
