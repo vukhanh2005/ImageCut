@@ -279,11 +279,13 @@ class ImageDocument:
         layer.mask = mask
 
         # Center on canvas
-        layer.offset_x = (self.canvas_width - layer.width()) / 2.0
-        layer.offset_y = (self.canvas_height - layer.height()) / 2.0
+        layer.offset_x = max(0.0, (self.canvas_width - layer.width()) / 2.0)
+        layer.offset_y = max(0.0, (self.canvas_height - layer.height()) / 2.0)
+
 
         self.add_layer(layer)
         return layer
+
 
     # Layer Management
     def add_layer(self, layer: Layer, index: Optional[int] = None) -> Layer:

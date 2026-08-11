@@ -18,6 +18,7 @@ class CanvasView(QGraphicsView):
     mouse_moved_signal = Signal(QPointF, tuple) # (img_pos, pixel_rgb)
     image_dropped_signal = Signal(str)
     images_dropped_signal = Signal(list)
+    zoom_changed_signal = Signal(float)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -45,6 +46,8 @@ class CanvasView(QGraphicsView):
         self.setAcceptDrops(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
 
     def set_document(self, doc: ImageDocument):
         self.document = doc
@@ -81,27 +84,43 @@ class CanvasView(QGraphicsView):
         if self.scene and not self.scene.sceneRect().isEmpty():
             self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
             self.zoom_factor = self.transform().m11()
+            self.zoom_changed_signal.emit(self.zoom_factor)
 
     def set_zoom_level(self, factor: float):
         """Sets explicit zoom scale factor."""
         self.resetTransform()
         self.scale(factor, factor)
         self.zoom_factor = factor
+        self.zoom_changed_signal.emit(self.zoom_factor)
+
+    def zoom_in(self):
+        """Zoom in by 20%."""
+        self.apply_zoom_step(1.2)
+
+    def zoom_out(self):
+        """Zoom out by 20%."""
+        self.apply_zoom_step(1.0 / 1.2)
+
+    def apply_zoom_step(self, factor: float):
+        new_zoom = self.zoom_factor * factor
+        if 0.02 <= new_zoom <= 50.0:
+            self.scale(factor, factor)
+            self.zoom_factor = self.transform().m11()
+            self.zoom_changed_signal.emit(self.zoom_factor)
 
     def wheelEvent(self, event: QWheelEvent):
-        """Zoom in/out with Mouse Wheel."""
+        """Zoom in/out smoothly anchored under the mouse cursor via wheel scroll."""
         zoom_in_factor = 1.15
-        zoom_out_factor = 1 / zoom_in_factor
+        zoom_out_factor = 1.0 / zoom_in_factor
 
         if event.angleDelta().y() > 0:
             factor = zoom_in_factor
         else:
             factor = zoom_out_factor
 
-        new_zoom = self.zoom_factor * factor
-        if 0.05 <= new_zoom <= 20.0:
-            self.scale(factor, factor)
-            self.zoom_factor = new_zoom
+        self.apply_zoom_step(factor)
+        event.accept()
+
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Space and not self.is_space_panning:

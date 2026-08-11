@@ -166,6 +166,30 @@ class MainWindow(QMainWindow):
         act_add_shape.triggered.connect(self.action_add_shape_layer)
         menu_layer.addAction(act_add_shape)
 
+        # View Menu
+        menu_view = menubar.addMenu("&View")
+        act_zoom_in = QAction("🔍 Zoom &In", self)
+        act_zoom_in.setShortcuts([QKeySequence("Ctrl++"), QKeySequence("Ctrl+=")])
+        act_zoom_in.triggered.connect(lambda: self.canvas.zoom_in())
+        menu_view.addAction(act_zoom_in)
+
+        act_zoom_out = QAction("🔍 Zoom &Out", self)
+        act_zoom_out.setShortcut("Ctrl+-")
+        act_zoom_out.triggered.connect(lambda: self.canvas.zoom_out())
+        menu_view.addAction(act_zoom_out)
+
+        menu_view.addSeparator()
+
+        act_zoom_fit = QAction("🎯 Fit to Screen", self)
+        act_zoom_fit.setShortcut("Ctrl+0")
+        act_zoom_fit.triggered.connect(lambda: self.canvas.fit_in_view())
+        menu_view.addAction(act_zoom_fit)
+
+        act_zoom_100 = QAction("100% Actual Size", self)
+        act_zoom_100.setShortcut("Ctrl+1")
+        act_zoom_100.triggered.connect(lambda: self.canvas.set_zoom_level(1.0))
+        menu_view.addAction(act_zoom_100)
+
         # Tools Menu
         menu_tools = menubar.addMenu("&Tools")
         act_remove_bg = QAction("✨ Auto Remove Background (Selected Layer)", self)
@@ -213,6 +237,7 @@ class MainWindow(QMainWindow):
         # Center Canvas
         self.canvas = CanvasView(self)
         self.canvas.mouse_moved_signal.connect(self._on_canvas_mouse_moved)
+        self.canvas.zoom_changed_signal.connect(self._on_zoom_changed)
         content_hbox.addWidget(self.canvas, stretch=1)
 
         # Right Side Control Panel Tabs
@@ -238,22 +263,57 @@ class MainWindow(QMainWindow):
         content_hbox.addWidget(self.right_tabs)
         main_vbox.addLayout(content_hbox, stretch=1)
 
-        # Bottom Status Bar
+        # Bottom Status Bar with Zoom Controls
         self.statusbar = QStatusBar(self)
         self.setStatusBar(self.statusbar)
 
         self.lbl_status_msg = QLabel("Ready. Import images to start compositing.", self)
         self.lbl_status_dim = QLabel("Canvas: 1920x1080", self)
+        self.lbl_status_color = QLabel("X: 0, Y: 0", self)
+
+        # Status Bar Zoom Controls Widget
+        zoom_bar = QWidget(self)
+        zoom_layout = QHBoxLayout(zoom_bar)
+        zoom_layout.setContentsMargins(0, 0, 0, 0)
+        zoom_layout.setSpacing(4)
+
+        btn_z_out = QPushButton("➖", self)
+        btn_z_out.setFixedSize(24, 22)
+        btn_z_out.setToolTip("Zoom Out (Ctrl+ - / Scroll Down)")
+        btn_z_out.clicked.connect(lambda: self.canvas.zoom_out())
+
         self.lbl_status_zoom = QLabel("Zoom: 100%", self)
-        self.lbl_status_color = QLabel("RGB: -", self)
+        self.lbl_status_zoom.setStyleSheet("font-weight: bold; padding: 0 4px;")
+
+        btn_z_in = QPushButton("➕", self)
+        btn_z_in.setFixedSize(24, 22)
+        btn_z_in.setToolTip("Zoom In (Ctrl+ + / Scroll Up)")
+        btn_z_in.clicked.connect(lambda: self.canvas.zoom_in())
+
+        btn_z_fit = QPushButton("Fit 🔍", self)
+        btn_z_fit.setFixedHeight(22)
+        btn_z_fit.setToolTip("Fit Canvas to Window (Ctrl+0)")
+        btn_z_fit.clicked.connect(lambda: self.canvas.fit_in_view())
+
+        btn_z_100 = QPushButton("100% 🎯", self)
+        btn_z_100.setFixedHeight(22)
+        btn_z_100.setToolTip("100% Actual Size (Ctrl+1)")
+        btn_z_100.clicked.connect(lambda: self.canvas.set_zoom_level(1.0))
+
+        zoom_layout.addWidget(btn_z_out)
+        zoom_layout.addWidget(self.lbl_status_zoom)
+        zoom_layout.addWidget(btn_z_in)
+        zoom_layout.addWidget(btn_z_fit)
+        zoom_layout.addWidget(btn_z_100)
 
         self.statusbar.addWidget(self.lbl_status_msg, stretch=1)
         self.statusbar.addPermanentWidget(self.lbl_status_color)
         self.statusbar.addPermanentWidget(self.lbl_status_dim)
-        self.statusbar.addPermanentWidget(self.lbl_status_zoom)
+        self.statusbar.addPermanentWidget(zoom_bar)
 
         # Sync document with all panels
         self._bind_document_to_panels()
+
 
     def _bind_document_to_panels(self):
         self.canvas.set_document(self.document)
@@ -327,8 +387,13 @@ class MainWindow(QMainWindow):
                 logger.error(f"Error importing image {path}: {e}", exc_info=True)
 
         if added_layers:
+            self.canvas.fit_in_view()
             self.lbl_status_dim.setText(f"Canvas: {self.document.width()}x{self.document.height()}")
             self.lbl_status_msg.setText(f"Imported {len(added_layers)} layer(s)")
+
+    def _on_zoom_changed(self, zoom_factor: float):
+        self.lbl_status_zoom.setText(f"Zoom: {int(zoom_factor * 100)}%")
+
 
     def action_import_images(self):
         file_paths, _ = QFileDialog.getOpenFileNames(
