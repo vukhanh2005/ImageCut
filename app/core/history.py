@@ -13,21 +13,47 @@ class Command:
 
 class MaskEditCommand(Command):
     """Command for mask modifications (Brush, Eraser, Auto Remove, Magic Wand, Filters)."""
-    def __init__(self, document, old_mask: np.ndarray, new_mask: np.ndarray, description: str = "Edit Mask"):
+    def __init__(self, document, old_mask: np.ndarray, new_mask: np.ndarray, layer_id: str = None, description: str = "Edit Mask"):
         self.document = document
+        self.layer_id = layer_id
         self.old_mask = old_mask.copy() if old_mask is not None else None
         self.new_mask = new_mask.copy() if new_mask is not None else None
         self.description = description
 
     def execute(self):
-        if self.new_mask is not None:
-            self.document.mask = self.new_mask.copy()
+        target = self.document.get_layer_by_id(self.layer_id) if self.layer_id else self.document.active_layer
+        if target is not None:
+            target.mask = self.new_mask.copy() if self.new_mask is not None else None
+            self.document.notify_changed()
+        elif hasattr(self.document, '_mask'):
+            self.document._mask = self.new_mask.copy() if self.new_mask is not None else None
             self.document.notify_changed()
 
     def undo(self):
-        if self.old_mask is not None:
-            self.document.mask = self.old_mask.copy()
+        target = self.document.get_layer_by_id(self.layer_id) if self.layer_id else self.document.active_layer
+        if target is not None:
+            target.mask = self.old_mask.copy() if self.old_mask is not None else None
             self.document.notify_changed()
+        elif hasattr(self.document, '_mask'):
+            self.document._mask = self.old_mask.copy() if self.old_mask is not None else None
+            self.document.notify_changed()
+
+class DocumentActionCommand(Command):
+    """Generic action command for undoing/redoing document layer state changes."""
+    def __init__(self, document, undo_fn: Callable, redo_fn: Callable, description: str = "Action"):
+        self.document = document
+        self._undo_fn = undo_fn
+        self._redo_fn = redo_fn
+        self.description = description
+
+    def execute(self):
+        self._redo_fn()
+        self.document.notify_changed()
+
+    def undo(self):
+        self._undo_fn()
+        self.document.notify_changed()
+
 
 class UndoStack:
     """Manages command history stack for Undo / Redo functionality."""

@@ -62,10 +62,25 @@ class ExportDialog(QDialog):
         layout.addWidget(grp_fmt)
 
         # Dimension Resizing
-        grp_dim = QGroupBox("Resolution / Dimensions", self)
+        grp_dim = QGroupBox("Resolution / Dimensions & Presets", self)
         vbox_dim = QVBoxLayout(grp_dim)
-        hbox_spins = QHBoxLayout()
 
+        hbox_preset = QHBoxLayout()
+        hbox_preset.addWidget(QLabel("Preset:", self))
+        self.combo_preset = QComboBox(self)
+        self.combo_preset.addItems([
+            "Current Canvas Size",
+            "YouTube Thumbnail (1920×1080)",
+            "YouTube Shorts / Reels (1080×1920)",
+            "Instagram Post (1080×1080)",
+            "Instagram Story (1080×1920)",
+            "Custom"
+        ])
+        self.combo_preset.currentIndexChanged.connect(self._on_preset_changed)
+        hbox_preset.addWidget(self.combo_preset, stretch=1)
+        vbox_dim.addLayout(hbox_preset)
+
+        hbox_spins = QHBoxLayout()
         orig_w = self.doc.width() if self.doc else 1920
         orig_h = self.doc.height() if self.doc else 1080
 
@@ -87,6 +102,7 @@ class ExportDialog(QDialog):
         vbox_dim.addWidget(self.chk_aspect)
         layout.addWidget(grp_dim)
 
+
         # Action Buttons
         hbox_btns = QHBoxLayout()
         hbox_btns.addStretch()
@@ -102,7 +118,21 @@ class ExportDialog(QDialog):
 
         self._on_format_changed("PNG")
 
+    def _on_preset_changed(self, idx: int):
+        presets = {
+            0: (self.doc.width() if self.doc else 1920, self.doc.height() if self.doc else 1080),
+            1: (1920, 1080),
+            2: (1080, 1920),
+            3: (1080, 1080),
+            4: (1080, 1920)
+        }
+        if idx in presets:
+            w, h = presets[idx]
+            self.spin_w.setValue(w)
+            self.spin_h.setValue(h)
+
     def _on_format_changed(self, fmt: str):
+
         is_lossy = fmt in ("JPG", "WEBP")
         self.slider_quality.setEnabled(is_lossy)
 

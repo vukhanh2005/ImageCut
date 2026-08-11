@@ -1,14 +1,17 @@
 import os
+from typing import List
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtGui import QAction, QKeySequence, QIcon
 from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                              QTabWidget, QFileDialog, QMessageBox, QLabel, QStatusBar)
 
 from app.core.image_document import ImageDocument
+from app.core.layer import Layer
 from app.core.project import ProjectManager
 from app.ui.top_bar import TopBarPanel
 from app.ui.toolbar import ToolBarPanel
 from app.ui.canvas import CanvasView
+from app.ui.panels.layer_panel import LayerManagerPanel
 from app.ui.panels.background_panel import BackgroundPanel
 from app.ui.panels.mask_panel import MaskPanel
 from app.ui.panels.image_panel import ImagePanel
@@ -30,25 +33,26 @@ from app.utils.logger import logger
 
 class MainWindow(QMainWindow):
     """
-    Main Application Window for Personal Background Remover & Image Editor.
+    Main Application Window for Multi-Layer Image Compositing & Editor.
     """
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Personal Background Remover & Image Editor")
-        self.resize(1360, 860)
+        self.setWindowTitle("ImageCut — Multi-Layer Image Compositing & Background Remover")
+        self.resize(1400, 900)
 
         self.document = ImageDocument()
+        self._copied_layers: List[Layer] = []
 
         # UI Setup
         self._init_menu_bar()
         self._init_ui_layout()
         self._init_tools()
-        self._init_shortcuts()
 
         # Connect Document Change Events
         self.document.add_change_listener(self._on_document_changed)
-        self.canvas.image_dropped_signal.connect(self.open_image_file)
+        self.canvas.image_dropped_signal.connect(lambda path: self.import_image_files([path]))
+        self.canvas.images_dropped_signal.connect(self.import_image_files)
 
     def _init_menu_bar(self):
         menubar = self.menuBar()
@@ -56,16 +60,23 @@ class MainWindow(QMainWindow):
         # File Menu
         menu_file = menubar.addMenu("&File")
 
-        act_open = QAction("&Open Image...", self)
+        act_import = QAction("📥 &Import Image(s)...", self)
+        act_import.setShortcut("Ctrl+I")
+        act_import.triggered.connect(self.action_import_images)
+        menu_file.addAction(act_import)
+
+        act_open = QAction("&Open Single Image...", self)
         act_open.setShortcut("Ctrl+O")
         act_open.triggered.connect(self.action_open)
         menu_file.addAction(act_open)
+
+        menu_file.addSeparator()
 
         act_open_proj = QAction("Open Project (.bgrem)...", self)
         act_open_proj.triggered.connect(self.action_open_project)
         menu_file.addAction(act_open_proj)
 
-        act_save_proj = QAction("&Save Project", self)
+        act_save_proj = QAction("&Save Project (.bgrem)", self)
         act_save_proj.setShortcut("Ctrl+S")
         act_save_proj.triggered.connect(self.action_save_project)
         menu_file.addAction(act_save_proj)
@@ -95,9 +106,69 @@ class MainWindow(QMainWindow):
         self.act_redo.triggered.connect(self.action_redo)
         menu_edit.addAction(self.act_redo)
 
+        menu_edit.addSeparator()
+
+        act_copy = QAction("Copy Layer(s)", self)
+        act_copy.setShortcut("Ctrl+C")
+        act_copy.triggered.connect(self.action_copy_layer)
+        menu_edit.addAction(act_copy)
+
+        act_paste = QAction("Paste Layer(s)", self)
+        act_paste.setShortcut("Ctrl+V")
+        act_paste.triggered.connect(self.action_paste_layer)
+        menu_edit.addAction(act_paste)
+
+        act_dup = QAction("Duplicate Layer(s)", self)
+        act_dup.setShortcut("Ctrl+D")
+        act_dup.triggered.connect(self.action_duplicate_layer)
+        menu_edit.addAction(act_dup)
+
+        act_del = QAction("Delete Selected Layer(s)", self)
+        act_del.setShortcut("Delete")
+        act_del.triggered.connect(self.action_delete_layer)
+        menu_edit.addAction(act_del)
+
+        # Layer Menu (Z-order & Grouping)
+        menu_layer = menubar.addMenu("&Layer")
+
+        act_top = QAction("Move to Top", self)
+        act_top.setShortcut("Ctrl+Shift+]")
+        act_top.triggered.connect(lambda: self.document.move_layer_top())
+        menu_layer.addAction(act_top)
+
+        act_up = QAction("Move Up", self)
+        act_up.setShortcut("Ctrl+]")
+        act_up.triggered.connect(lambda: self.document.move_layer_up())
+        menu_layer.addAction(act_up)
+
+        act_down = QAction("Move Down", self)
+        act_down.setShortcut("Ctrl+[")
+        act_down.triggered.connect(lambda: self.document.move_layer_down())
+        menu_layer.addAction(act_down)
+
+        act_bot = QAction("Move to Bottom", self)
+        act_bot.setShortcut("Ctrl+Shift+[")
+        act_bot.triggered.connect(lambda: self.document.move_layer_bottom())
+        menu_layer.addAction(act_bot)
+
+        menu_layer.addSeparator()
+
+        act_group = QAction("Group Selected Layers", self)
+        act_group.setShortcut("Ctrl+G")
+        act_group.triggered.connect(lambda: self.document.group_layers(list(self.document.active_layer_ids)))
+        menu_layer.addAction(act_group)
+
+        act_add_text = QAction("➕ Add Text Layer", self)
+        act_add_text.triggered.connect(self.action_add_text_layer)
+        menu_layer.addAction(act_add_text)
+
+        act_add_shape = QAction("➕ Add Shape Layer", self)
+        act_add_shape.triggered.connect(self.action_add_shape_layer)
+        menu_layer.addAction(act_add_shape)
+
         # Tools Menu
         menu_tools = menubar.addMenu("&Tools")
-        act_remove_bg = QAction("✨ Auto Remove Background", self)
+        act_remove_bg = QAction("✨ Auto Remove Background (Selected Layer)", self)
         act_remove_bg.triggered.connect(self.action_auto_remove)
         menu_tools.addAction(act_remove_bg)
 
@@ -121,7 +192,7 @@ class MainWindow(QMainWindow):
 
         # Top Bar
         self.top_bar = TopBarPanel(self)
-        self.top_bar.open_signal.connect(self.action_open)
+        self.top_bar.open_signal.connect(self.action_import_images)
         self.top_bar.undo_signal.connect(self.action_undo)
         self.top_bar.redo_signal.connect(self.action_redo)
         self.top_bar.auto_remove_signal.connect(self.action_auto_remove)
@@ -146,18 +217,23 @@ class MainWindow(QMainWindow):
 
         # Right Side Control Panel Tabs
         self.right_tabs = QTabWidget(self)
-        self.right_tabs.setFixedWidth(320)
+        self.right_tabs.setFixedWidth(340)
 
-        self.panel_bg = BackgroundPanel(self)
-        self.panel_mask = MaskPanel(self)
-        self.panel_image = ImagePanel(self)
+        self.panel_layers = LayerManagerPanel(self)
+        self.panel_layers.btn_add.clicked.connect(self.action_import_images)
+
         self.panel_transform = TransformPanel(self)
         self.panel_transform.apply_crop_signal.connect(self.action_apply_crop)
 
-        self.right_tabs.addTab(self.panel_bg, "Background")
+        self.panel_mask = MaskPanel(self)
+        self.panel_image = ImagePanel(self)
+        self.panel_bg = BackgroundPanel(self)
+
+        self.right_tabs.addTab(self.panel_layers, "Layers")
+        self.right_tabs.addTab(self.panel_transform, "Transform")
         self.right_tabs.addTab(self.panel_mask, "Mask")
         self.right_tabs.addTab(self.panel_image, "Image")
-        self.right_tabs.addTab(self.panel_transform, "Transform")
+        self.right_tabs.addTab(self.panel_bg, "Background")
 
         content_hbox.addWidget(self.right_tabs)
         main_vbox.addLayout(content_hbox, stretch=1)
@@ -166,8 +242,8 @@ class MainWindow(QMainWindow):
         self.statusbar = QStatusBar(self)
         self.setStatusBar(self.statusbar)
 
-        self.lbl_status_msg = QLabel("Ready. Open an image to start.", self)
-        self.lbl_status_dim = QLabel("Res: 0x0", self)
+        self.lbl_status_msg = QLabel("Ready. Import images to start compositing.", self)
+        self.lbl_status_dim = QLabel("Canvas: 1920x1080", self)
         self.lbl_status_zoom = QLabel("Zoom: 100%", self)
         self.lbl_status_color = QLabel("RGB: -", self)
 
@@ -175,6 +251,17 @@ class MainWindow(QMainWindow):
         self.statusbar.addPermanentWidget(self.lbl_status_color)
         self.statusbar.addPermanentWidget(self.lbl_status_dim)
         self.statusbar.addPermanentWidget(self.lbl_status_zoom)
+
+        # Sync document with all panels
+        self._bind_document_to_panels()
+
+    def _bind_document_to_panels(self):
+        self.canvas.set_document(self.document)
+        self.panel_layers.set_document(self.document)
+        self.panel_transform.set_document(self.document)
+        self.panel_mask.set_document(self.document)
+        self.panel_image.set_document(self.document)
+        self.panel_bg.set_document(self.document)
 
     def _init_tools(self):
         """Instantiates canvas interaction tool objects."""
@@ -188,12 +275,10 @@ class MainWindow(QMainWindow):
         }
         self.select_tool_by_name("Select")
 
-    def _init_shortcuts(self):
-        """Registers quick single-key keyboard shortcuts."""
-        pass  # Qt handles standard QAction shortcuts
-
     def keyPressEvent(self, event):
         key = event.key()
+        modifiers = event.modifiers()
+
         if key == Qt.Key.Key_B:
             self.toolbar_panel.set_active_tool("Brush")
             self.select_tool_by_name("Brush")
@@ -212,10 +297,14 @@ class MainWindow(QMainWindow):
         elif key == Qt.Key.Key_H:
             self.toolbar_panel.set_active_tool("Select")
             self.select_tool_by_name("Select")
-        elif event.modifiers() == Qt.KeyboardModifier.ControlModifier and key == Qt.Key.Key_0:
+        elif modifiers == Qt.KeyboardModifier.ControlModifier and key == Qt.Key.Key_0:
             self.canvas.fit_in_view()
-        elif event.modifiers() == Qt.KeyboardModifier.ControlModifier and key == Qt.Key.Key_1:
+        elif modifiers == Qt.KeyboardModifier.ControlModifier and key == Qt.Key.Key_1:
             self.canvas.set_zoom_level(1.0)
+        elif modifiers == Qt.KeyboardModifier.ControlModifier and key == Qt.Key.Key_D:
+            self.action_duplicate_layer()
+        elif key == Qt.Key.Key_Delete or key == Qt.Key.Key_Backspace:
+            self.action_delete_layer()
         else:
             super().keyPressEvent(event)
 
@@ -225,47 +314,52 @@ class MainWindow(QMainWindow):
             self.canvas.set_active_tool(tool)
             self.lbl_status_msg.setText(f"Active Tool: {tool_name}")
 
+    # Import Methods
+    def import_image_files(self, file_paths: List[str]):
+        """Imports multiple images as independent layers."""
+        added_layers = []
+        for path in file_paths:
+            try:
+                arr = load_image(path)
+                layer = self.document.add_image_layer(arr, name=os.path.basename(path))
+                added_layers.append(layer)
+            except Exception as e:
+                logger.error(f"Error importing image {path}: {e}", exc_info=True)
+
+        if added_layers:
+            self.lbl_status_dim.setText(f"Canvas: {self.document.width()}x{self.document.height()}")
+            self.lbl_status_msg.setText(f"Imported {len(added_layers)} layer(s)")
+
+    def action_import_images(self):
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self, "Import Images", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp *.tiff)"
+        )
+        if file_paths:
+            self.import_image_files(file_paths)
+
     def open_image_file(self, file_path: str):
-        """Loads an image into the document model."""
-        try:
-            arr = load_image(file_path)
-            self.document.set_original_image(arr)
-            self.canvas.set_document(self.document)
-            self.panel_bg.set_document(self.document)
-            self.panel_mask.set_document(self.document)
-            self.panel_image.set_document(self.document)
-            self.panel_transform.set_document(self.document)
+        self.import_image_files([file_path])
 
-            self.lbl_status_dim.setText(f"Res: {self.document.width()}x{self.document.height()}")
-            self.lbl_status_msg.setText(f"Loaded: {os.path.basename(file_path)}")
-        except Exception as e:
-            logger.error(f"Error opening image {file_path}: {e}", exc_info=True)
-            QMessageBox.critical(self, "Error Opening Image", f"Could not load image file:\n{e}")
-
-    # Actions
     def action_open(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Images (*.png *.jpg *.jpeg *.webp *.bmp *.tiff)")
         if file_path:
-            self.open_image_file(file_path)
+            self.import_image_files([file_path])
 
+    # Project Save / Load
     def action_open_project(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Project", "", "Project Files (*.bgrem)")
         if file_path:
             try:
                 doc = ProjectManager.load_project(file_path)
                 self.document = doc
-                self.canvas.set_document(self.document)
-                self.panel_bg.set_document(self.document)
-                self.panel_mask.set_document(self.document)
-                self.panel_image.set_document(self.document)
-                self.panel_transform.set_document(self.document)
+                self._bind_document_to_panels()
                 self.lbl_status_msg.setText(f"Loaded Project: {os.path.basename(file_path)}")
             except Exception as e:
                 QMessageBox.critical(self, "Project Load Error", f"Could not load project:\n{e}")
 
     def action_save_project(self):
-        if self.document.original_image is None:
-            QMessageBox.warning(self, "No Image", "Please open an image before saving a project.")
+        if not self.document.layers and self.document.original_image is None:
+            QMessageBox.warning(self, "No Image", "Please import an image before saving a project.")
             return
 
         file_path, _ = QFileDialog.getSaveFileName(self, "Save Project", "project.bgrem", "Project Files (*.bgrem)")
@@ -276,6 +370,7 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.critical(self, "Error", "Failed to save project.")
 
+    # Edit Actions
     def action_undo(self):
         if self.document and self.document.undo_stack.can_undo():
             self.document.undo_stack.undo()
@@ -284,9 +379,51 @@ class MainWindow(QMainWindow):
         if self.document and self.document.undo_stack.can_redo():
             self.document.undo_stack.redo()
 
+    def action_copy_layer(self):
+        if self.document and self.document.active_layers:
+            self._copied_layers = [lyr.copy() for lyr in self.document.active_layers]
+            self.lbl_status_msg.setText(f"Copied {len(self._copied_layers)} layer(s)")
+
+    def action_paste_layer(self):
+        if self.document and self._copied_layers:
+            pasted = []
+            for lyr in self._copied_layers:
+                dup = lyr.copy()
+                dup.offset_x += 30
+                dup.offset_y += 30
+                self.document.add_layer(dup)
+                pasted.append(dup)
+            self.document.active_layer_ids = [l.id for l in pasted]
+            self.document.notify_changed()
+            self.lbl_status_msg.setText(f"Pasted {len(pasted)} layer(s)")
+
+    def action_duplicate_layer(self):
+        if self.document:
+            self.document.duplicate_layers()
+
+    def action_delete_layer(self):
+        if self.document and self.document.active_layer_ids:
+            self.document.remove_layers(list(self.document.active_layer_ids))
+
+    def action_add_text_layer(self):
+        if self.document:
+            text_lyr = Layer(name=f"Text {len(self.document.layers)+1}", layer_type="text")
+            text_lyr.offset_x = (self.document.canvas_width - 200) / 2.0
+            text_lyr.offset_y = (self.document.canvas_height - 100) / 2.0
+            self.document.add_layer(text_lyr)
+
+    def action_add_shape_layer(self):
+        if self.document:
+            shape_lyr = Layer(name=f"Shape {len(self.document.layers)+1}", layer_type="shape")
+            shape_lyr.offset_x = (self.document.canvas_width - 200) / 2.0
+            shape_lyr.offset_y = (self.document.canvas_height - 200) / 2.0
+            self.document.add_layer(shape_lyr)
+
+    # Per-Layer AI Background Removal
     def action_auto_remove(self):
-        if self.document.original_image is None:
-            QMessageBox.warning(self, "No Image", "Please open an image first.")
+        active = self.document.active_layer
+        if active is None or active.image is None:
+            QMessageBox.warning(self, "No Layer Selected", "Please select an image layer to run AI Background Removal.")
             return
 
         self.top_bar.show_progress(10)
@@ -295,17 +432,17 @@ class MainWindow(QMainWindow):
         model_name = settings.get("ai_model", "RMBG-1.4")
         device = settings.get("ai_device", "Auto")
 
-        self.worker = BackgroundRemovalWorker(self.document.original_image, engine_type="AI", model_name=model_name, device=device)
+        self.worker = BackgroundRemovalWorker(active.image, engine_type="AI", model_name=model_name, device=device)
         self.worker.progress.connect(self.top_bar.show_progress)
-        self.worker.finished.connect(self._on_ai_finished)
+        self.worker.finished.connect(lambda mask: self._on_ai_finished(mask, active.id))
         self.worker.error.connect(self._on_ai_error)
         self.worker.start()
 
-    def _on_ai_finished(self, mask):
+    def _on_ai_finished(self, mask, layer_id: str):
         self.top_bar.hide_progress()
         self.top_bar.btn_auto_remove.setEnabled(True)
-        self.document.update_mask(mask, description="AI Background Removal")
-        self.lbl_status_msg.setText("AI Background Removal complete!")
+        self.document.update_mask(mask, layer_id=layer_id, description="AI Background Removal")
+        self.lbl_status_msg.setText("AI Background Removal complete on selected layer!")
 
     def _on_ai_error(self, err_msg: str):
         self.top_bar.hide_progress()
@@ -322,8 +459,8 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def action_export(self):
-        if self.document.original_image is None:
-            QMessageBox.warning(self, "No Image", "Please open an image before exporting.")
+        if not self.document.layers:
+            QMessageBox.warning(self, "Empty Document", "There are no layers to export.")
             return
         dlg = ExportDialog(self.document, self)
         dlg.exec()
@@ -331,7 +468,6 @@ class MainWindow(QMainWindow):
     def action_settings(self):
         dlg = SettingsDialog(self)
         if dlg.exec():
-            # Refresh theme or model preferences if updated
             pass
 
     def _on_document_changed(self):
@@ -339,6 +475,7 @@ class MainWindow(QMainWindow):
         self.act_redo.setEnabled(self.document.undo_stack.can_redo())
         self.canvas.update_canvas()
 
-    def _on_canvas_mouse_moved(self, img_pos: QPointF, rgb_color: tuple):
-        self.lbl_status_color.setText(f"RGB: {rgb_color}")
+    def _on_canvas_mouse_moved(self, scene_pos: QPointF, rgb_color: tuple):
+        self.lbl_status_color.setText(f"X: {int(scene_pos.x())}, Y: {int(scene_pos.y())}")
         self.lbl_status_zoom.setText(f"Zoom: {int(self.canvas.zoom_factor * 100)}%")
+
