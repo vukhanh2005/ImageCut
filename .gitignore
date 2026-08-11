@@ -1,0 +1,22 @@
+# Python / PyInstaller ignore
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Build & Dist
+build/
+dist/
+*.egg-info/
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Cache & Logs
+.pytest_cache/
+logs/
+.vscode/
+.idea/
