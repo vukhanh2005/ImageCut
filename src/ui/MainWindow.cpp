@@ -534,12 +534,39 @@ void MainWindow::actionAddTextLayer() {
 }
 
 void MainWindow::actionAddShapeLayer() {
-    if (m_document) {
-        auto lyr = std::make_shared<Core::Layer>(QString("Shape %1").arg(m_document->layers.size() + 1), cv::Mat(), "shape");
-        lyr->offsetX = (m_document->canvasWidth - 200) / 2.0;
-        lyr->offsetY = (m_document->canvasHeight - 200) / 2.0;
-        m_document->addLayer(lyr);
+    if (!m_document) return;
+
+    QMenu menu(this);
+    menu.setTitle("Choose Shape");
+
+    struct ShapeChoice { QString type; QString label; };
+    std::vector<ShapeChoice> choices = {
+        { "Rectangle", "⬛ Rectangle (Hình chữ nhật)" },
+        { "RoundedRectangle", "🔲 Rounded Rectangle (Bo góc)" },
+        { "Circle", "⚪ Circle / Ellipse (Hình tròn)" },
+        { "Triangle", "🔺 Triangle (Hình tam giác)" },
+        { "Diamond", "🔷 Diamond (Hình thoi)" },
+        { "Arrow", "➡️ Arrow (Mũi tên chỉ hướng)" },
+        { "Star", "⭐ Star (Ngôi sao 5 cánh)" },
+        { "SpeechBubble", "💬 Speech Bubble (Bóng thoại)" },
+        { "Heart", "❤️ Heart (Hình trái tim)" },
+        { "Hexagon", "⬡ Hexagon (Hình lục giác)" },
+        { "Octagon", "🛑 Octagon (Hình bát giác)" },
+        { "Shield", "🛡️ Shield (Hình cái khiên)" }
+    };
+
+    for (const auto& ch : choices) {
+        QAction* act = menu.addAction(ch.label);
+        connect(act, &QAction::triggered, [this, ch]() {
+            auto lyr = std::make_shared<Core::Layer>(QString("%1 Layer").arg(ch.type), cv::Mat(), "shape");
+            lyr->shapeType = ch.type;
+            lyr->offsetX = (m_document->canvasWidth - 240) / 2.0;
+            lyr->offsetY = (m_document->canvasHeight - 240) / 2.0;
+            m_document->addLayer(lyr);
+        });
     }
+
+    menu.exec(QCursor::pos());
 }
 
 void MainWindow::actionAutoRemove() {

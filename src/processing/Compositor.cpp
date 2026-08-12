@@ -251,6 +251,21 @@ cv::Mat Compositor::renderShapeLayer(const Core::Layer& lyr) {
         painter.drawRoundedRect(rect, 20, 20);
     } else if (lyr.shapeType == "Circle") {
         painter.drawEllipse(rect);
+    } else if (lyr.shapeType == "Triangle") {
+        QPainterPath path;
+        path.moveTo(rect.center().x(), rect.top());
+        path.lineTo(rect.right(), rect.bottom());
+        path.lineTo(rect.left(), rect.bottom());
+        path.closeSubpath();
+        painter.drawPath(path);
+    } else if (lyr.shapeType == "Diamond") {
+        QPainterPath path;
+        path.moveTo(rect.center().x(), rect.top());
+        path.lineTo(rect.right(), rect.center().y());
+        path.lineTo(rect.center().x(), rect.bottom());
+        path.lineTo(rect.left(), rect.center().y());
+        path.closeSubpath();
+        painter.drawPath(path);
     } else if (lyr.shapeType == "Arrow") {
         QPainterPath path;
         double cy = rect.center().y();
@@ -295,6 +310,52 @@ cv::Mat Compositor::renderShapeLayer(const Core::Layer& lyr) {
         tail.closeSubpath();
 
         path = path.united(tail);
+        painter.drawPath(path);
+    } else if (lyr.shapeType == "Heart") {
+        QPainterPath path;
+        double x = rect.left(), y = rect.top(), w = rect.width(), h = rect.height();
+        path.moveTo(x + w / 2, y + h / 4);
+        path.cubicTo(x + w / 2, y, x, y, x, y + h / 4);
+        path.cubicTo(x, y + h / 2, x + w / 2, y + h * 0.85, x + w / 2, y + h);
+        path.cubicTo(x + w / 2, y + h * 0.85, x + w, y + h / 2, x + w, y + h / 4);
+        path.cubicTo(x + w, y, x + w / 2, y, x + w / 2, y + h / 4);
+        path.closeSubpath();
+        painter.drawPath(path);
+    } else if (lyr.shapeType == "Hexagon") {
+        QPainterPath path;
+        QPointF center = rect.center();
+        double rx = rect.width() / 2.0, ry = rect.height() / 2.0;
+        for (int i = 0; i < 6; ++i) {
+            double angle = i * M_PI / 3.0;
+            double px = center.x() + rx * std::cos(angle);
+            double py = center.y() + ry * std::sin(angle);
+            if (i == 0) path.moveTo(px, py);
+            else path.lineTo(px, py);
+        }
+        path.closeSubpath();
+        painter.drawPath(path);
+    } else if (lyr.shapeType == "Octagon") {
+        QPainterPath path;
+        QPointF center = rect.center();
+        double rx = rect.width() / 2.0, ry = rect.height() / 2.0;
+        for (int i = 0; i < 8; ++i) {
+            double angle = i * M_PI / 4.0 - M_PI / 8.0;
+            double px = center.x() + rx * std::cos(angle);
+            double py = center.y() + ry * std::sin(angle);
+            if (i == 0) path.moveTo(px, py);
+            else path.lineTo(px, py);
+        }
+        path.closeSubpath();
+        painter.drawPath(path);
+    } else if (lyr.shapeType == "Shield") {
+        QPainterPath path;
+        double x = rect.left(), y = rect.top(), w = rect.width(), h = rect.height();
+        path.moveTo(x, y);
+        path.lineTo(x + w, y);
+        path.lineTo(x + w, y + h * 0.5);
+        path.cubicTo(x + w, y + h * 0.8, x + w * 0.5, y + h, x + w * 0.5, y + h);
+        path.cubicTo(x + w * 0.5, y + h, x, y + h * 0.8, x, y + h * 0.5);
+        path.closeSubpath();
         painter.drawPath(path);
     }
 
