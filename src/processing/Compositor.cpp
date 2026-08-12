@@ -167,25 +167,32 @@ cv::Mat Compositor::renderSingleLayer(const Core::Layer& lyr) {
         lyr.dirty = false;
         return rgbaRes;
     } else if (lyr.layerType == "text") {
-        return renderTextLayer(lyr);
+        cv::Mat res = renderTextLayer(lyr);
+        lyr.cachedRgba = res;
+        lyr.dirty = false;
+        return res;
     } else if (lyr.layerType == "shape") {
-        return renderShapeLayer(lyr);
+        cv::Mat res = renderShapeLayer(lyr);
+        lyr.cachedRgba = res;
+        lyr.dirty = false;
+        return res;
     }
     return cv::Mat();
 }
 
 cv::Mat Compositor::renderTextLayer(const Core::Layer& lyr) {
     QString text = lyr.textContent.isEmpty() ? "Sample Text" : lyr.textContent;
-    QFont font(lyr.fontFamily.isEmpty() ? "Arial" : lyr.fontFamily, lyr.fontSize);
+    QFont font(lyr.fontFamily.isEmpty() ? "Segoe UI" : lyr.fontFamily, lyr.fontSize);
     font.setBold(lyr.fontBold);
     font.setItalic(lyr.fontItalic);
 
     QFontMetrics fm(font);
-    QRect textRect = fm.boundingRect(text);
+    int textW = fm.horizontalAdvance(text);
+    int textH = fm.height();
 
-    int margin = 30 + (lyr.textHasStroke ? lyr.textStrokeWidth * 2 : 0) + (lyr.textHasShadow ? 20 : 0);
-    int w = std::max(60, textRect.width() + margin * 2);
-    int h = std::max(40, textRect.height() + margin * 2);
+    int margin = 20 + (lyr.textHasStroke ? lyr.textStrokeWidth * 2 : 0) + (lyr.textHasShadow ? 15 : 0);
+    int w = std::max(40, textW + margin * 2);
+    int h = std::max(30, textH + margin * 2);
 
     QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
@@ -193,13 +200,13 @@ cv::Mat Compositor::renderTextLayer(const Core::Layer& lyr) {
     QPainter painter(&img);
     painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
 
-    QRectF drawBox(margin, margin, textRect.width(), textRect.height());
+    QRectF drawBox(margin, margin, textW, textH);
 
     if (lyr.textHasBg) {
-        QRectF bgRect = drawBox.adjusted(-10, -5, 10, 5);
+        QRectF bgRect = drawBox.adjusted(-8, -4, 8, 4);
         painter.setPen(Qt::NoPen);
         painter.setBrush(lyr.textBgColor);
-        painter.drawRoundedRect(bgRect, 8, 8);
+        painter.drawRoundedRect(bgRect, 6, 6);
     }
 
     if (lyr.textHasShadow) {

@@ -1,4 +1,6 @@
 #include "core/Layer.h"
+#include <QFont>
+#include <QFontMetrics>
 
 namespace ImageCut {
 namespace Core {
@@ -30,17 +32,41 @@ void Layer::invalidateCache() {
 }
 
 int Layer::width() const {
+    if (!cachedRgba.empty()) {
+        return cachedRgba.cols;
+    }
     if (!image.empty()) {
         return image.cols;
     }
-    return 200;
+    if (layerType == "text") {
+        QFont font(fontFamily.isEmpty() ? "Segoe UI" : fontFamily, fontSize);
+        font.setBold(fontBold);
+        font.setItalic(fontItalic);
+        QFontMetrics fm(font);
+        int tw = fm.horizontalAdvance(textContent.isEmpty() ? "Sample Text" : textContent);
+        int margin = 30 + (textHasStroke ? textStrokeWidth * 2 : 0) + (textHasShadow ? 20 : 0);
+        return std::max(40, tw + margin * 2);
+    }
+    return 240;
 }
 
 int Layer::height() const {
+    if (!cachedRgba.empty()) {
+        return cachedRgba.rows;
+    }
     if (!image.empty()) {
         return image.rows;
     }
-    return 200;
+    if (layerType == "text") {
+        QFont font(fontFamily.isEmpty() ? "Segoe UI" : fontFamily, fontSize);
+        font.setBold(fontBold);
+        font.setItalic(fontItalic);
+        QFontMetrics fm(font);
+        int th = fm.height();
+        int margin = 30 + (textHasStroke ? textStrokeWidth * 2 : 0) + (textHasShadow ? 20 : 0);
+        return std::max(30, th + margin * 2);
+    }
+    return 240;
 }
 
 std::shared_ptr<Layer> Layer::clone() const {
