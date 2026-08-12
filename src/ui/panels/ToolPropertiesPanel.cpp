@@ -3,6 +3,7 @@
 #include "tools/MagicWandTool.h"
 #include "tools/LassoTool.h"
 #include "tools/PolyLassoTool.h"
+#include "tools/RefineEdgeTool.h"
 #include "tools/CropTool.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -46,12 +47,13 @@ void ToolPropertiesPanel::initUi() {
     layout->addWidget(sep);
 
     m_stackedWidgets = new QStackedWidget(this);
-    m_stackedWidgets->addWidget(createSelectWidget());    // 0: Select
-    m_stackedWidgets->addWidget(createBrushWidget());     // 1: Brush / Eraser
-    m_stackedWidgets->addWidget(createMagicWandWidget()); // 2: MagicWand
-    m_stackedWidgets->addWidget(createLassoWidget());     // 3: Lasso
-    m_stackedWidgets->addWidget(createCropWidget());      // 4: Crop
-    m_stackedWidgets->addWidget(createPolyLassoWidget()); // 5: PolyLasso
+    m_stackedWidgets->addWidget(createSelectWidget());     // 0: Select
+    m_stackedWidgets->addWidget(createBrushWidget());      // 1: Brush / Eraser
+    m_stackedWidgets->addWidget(createMagicWandWidget());  // 2: MagicWand
+    m_stackedWidgets->addWidget(createLassoWidget());      // 3: Lasso
+    m_stackedWidgets->addWidget(createCropWidget());       // 4: Crop
+    m_stackedWidgets->addWidget(createPolyLassoWidget());  // 5: PolyLasso
+    m_stackedWidgets->addWidget(createRefineEdgeWidget()); // 6: RefineEdge
 
     layout->addWidget(m_stackedWidgets, 1);
 }
@@ -256,6 +258,96 @@ QWidget* ToolPropertiesPanel::createPolyLassoWidget() {
     return w;
 }
 
+QWidget* ToolPropertiesPanel::createRefineEdgeWidget() {
+    QWidget* w = new QWidget(this);
+    QHBoxLayout* h = new QHBoxLayout(w);
+    h->setContentsMargins(0, 0, 0, 0);
+    h->setSpacing(12);
+
+    h->addWidget(new QLabel("Brush Size:", w));
+    m_spnRefineSize = new QSpinBox(w);
+    m_spnRefineSize->setRange(5, 150);
+    m_spnRefineSize->setValue(25);
+    m_spnRefineSize->setSuffix(" px");
+    h->addWidget(m_spnRefineSize);
+
+    m_sldRefineSize = new QSlider(Qt::Horizontal, w);
+    m_sldRefineSize->setRange(5, 150);
+    m_sldRefineSize->setValue(25);
+    m_sldRefineSize->setFixedWidth(100);
+    h->addWidget(m_sldRefineSize);
+
+    connect(m_spnRefineSize, QOverload<int>::of(&QSpinBox::valueChanged), [this](int val) {
+        m_sldRefineSize->blockSignals(true);
+        m_sldRefineSize->setValue(val);
+        m_sldRefineSize->blockSignals(false);
+        if (m_currentTool) {
+            auto rtool = dynamic_cast<Tools::RefineEdgeTool*>(m_currentTool);
+            if (rtool) rtool->setSize(val);
+        }
+    });
+
+    connect(m_sldRefineSize, &QSlider::valueChanged, [this](int val) {
+        m_spnRefineSize->blockSignals(true);
+        m_spnRefineSize->setValue(val);
+        m_spnRefineSize->blockSignals(false);
+        if (m_currentTool) {
+            auto rtool = dynamic_cast<Tools::RefineEdgeTool*>(m_currentTool);
+            if (rtool) rtool->setSize(val);
+        }
+    });
+
+    QFrame* sep1 = new QFrame(w);
+    sep1->setFrameShape(QFrame::VLine);
+    sep1->setStyleSheet("color: #2D3748;");
+    h->addWidget(sep1);
+
+    h->addWidget(new QLabel("Hair Radius:", w));
+    m_spnRefineRadius = new QSpinBox(w);
+    m_spnRefineRadius->setRange(1, 25);
+    m_spnRefineRadius->setValue(8);
+    h->addWidget(m_spnRefineRadius);
+
+    m_sldRefineRadius = new QSlider(Qt::Horizontal, w);
+    m_sldRefineRadius->setRange(1, 25);
+    m_sldRefineRadius->setValue(8);
+    m_sldRefineRadius->setFixedWidth(80);
+    h->addWidget(m_sldRefineRadius);
+
+    connect(m_spnRefineRadius, QOverload<int>::of(&QSpinBox::valueChanged), [this](int val) {
+        m_sldRefineRadius->blockSignals(true);
+        m_sldRefineRadius->setValue(val);
+        m_sldRefineRadius->blockSignals(false);
+        if (m_currentTool) {
+            auto rtool = dynamic_cast<Tools::RefineEdgeTool*>(m_currentTool);
+            if (rtool) rtool->setRadius(val);
+        }
+    });
+
+    connect(m_sldRefineRadius, &QSlider::valueChanged, [this](int val) {
+        m_spnRefineRadius->blockSignals(true);
+        m_spnRefineRadius->setValue(val);
+        m_spnRefineRadius->blockSignals(false);
+        if (m_currentTool) {
+            auto rtool = dynamic_cast<Tools::RefineEdgeTool*>(m_currentTool);
+            if (rtool) rtool->setRadius(val);
+        }
+    });
+
+    m_chkDecontaminate = new QCheckBox("Color Decontamination (Tẩy ám màu nền)", w);
+    m_chkDecontaminate->setChecked(true);
+    connect(m_chkDecontaminate, &QCheckBox::toggled, [this](bool checked) {
+        if (m_currentTool) {
+            auto rtool = dynamic_cast<Tools::RefineEdgeTool*>(m_currentTool);
+            if (rtool) rtool->setDecontaminate(checked);
+        }
+    });
+    h->addWidget(m_chkDecontaminate);
+
+    h->addStretch();
+    return w;
+}
+
 QWidget* ToolPropertiesPanel::createCropWidget() {
     QWidget* w = new QWidget(this);
     QHBoxLayout* h = new QHBoxLayout(w);
@@ -306,6 +398,16 @@ void ToolPropertiesPanel::setTool(Tools::BaseTool* tool, const QString& toolName
         if (btool) {
             btool->setMode("Eraser");
             m_spnBrushSize->setValue(btool->getSize());
+        }
+    } else if (toolName == "RefineEdge") {
+        m_lblToolIcon->setText("💇");
+        m_lblToolName->setText("Refine Edge Hair Matting Tool");
+        m_stackedWidgets->setCurrentIndex(6);
+        auto rtool = dynamic_cast<Tools::RefineEdgeTool*>(tool);
+        if (rtool) {
+            m_spnRefineSize->setValue(rtool->getSize());
+            m_spnRefineRadius->setValue(rtool->getRadius());
+            m_chkDecontaminate->setChecked(rtool->isDecontaminate());
         }
     } else if (toolName == "MagicWand") {
         m_lblToolIcon->setText("🪄");

@@ -5,6 +5,7 @@
 #include "tools/MagicWandTool.h"
 #include "tools/LassoTool.h"
 #include "tools/PolyLassoTool.h"
+#include "tools/RefineEdgeTool.h"
 #include "tools/CropTool.h"
 #include "workers/InferenceWorker.h"
 #include "utils/ImageUtils.h"
@@ -305,6 +306,7 @@ void MainWindow::initTools() {
     m_tools["Select"] = std::make_unique<Tools::SelectMoveTool>(m_canvas);
     m_tools["Brush"] = std::make_unique<Tools::MaskBrushTool>(m_canvas, "Restore");
     m_tools["Eraser"] = std::make_unique<Tools::MaskBrushTool>(m_canvas, "Eraser");
+    m_tools["RefineEdge"] = std::make_unique<Tools::RefineEdgeTool>(m_canvas);
     m_tools["MagicWand"] = std::make_unique<Tools::MagicWandTool>(m_canvas);
     m_tools["Lasso"] = std::make_unique<Tools::LassoTool>(m_canvas, "Remove");
     m_tools["PolyLasso"] = std::make_unique<Tools::PolyLassoTool>(m_canvas, "Keep");
@@ -327,6 +329,9 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
     } else if (key == Qt::Key_E) {
         m_toolBar->setActiveTool("Eraser");
         selectToolByName("Eraser");
+    } else if (key == Qt::Key_R) {
+        m_toolBar->setActiveTool("RefineEdge");
+        selectToolByName("RefineEdge");
     } else if (key == Qt::Key_W) {
         m_toolBar->setActiveTool("MagicWand");
         selectToolByName("MagicWand");

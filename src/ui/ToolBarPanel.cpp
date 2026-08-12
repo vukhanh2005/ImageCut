@@ -29,6 +29,7 @@ ToolBarPanel::ToolBarPanel(QWidget* parent)
         { "Select", "Select & Pan Tool (H / Space)", "✋" },
         { "Brush", "Restore Brush Tool (B)", "🖌️" },
         { "Eraser", "Eraser Tool (E)", "🧹" },
+        { "RefineEdge", "Refine Edge Hair Matting Tool (R)", "💇" },
         { "MagicWand", "Magic Wand Color Select (W)", "🪄" },
         { "Lasso", "Freehand Lasso Tool (L)", "✂️" },
         { "PolyLasso", "Point-to-Point Polygon Keep/Remove Tool (P)", "🪡" },

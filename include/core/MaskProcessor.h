@@ -14,6 +14,8 @@ public:
     static cv::Mat expandContract(const cv::Mat& mask, int value);
     static cv::Mat adjustEdgeContrast(const cv::Mat& mask, double contrast = 1.0);
     static cv::Mat decontaminateColors(const cv::Mat& rgbImage, const cv::Mat& mask, int radius = 5);
+    static cv::Mat guidedFilter(const cv::Mat& guideImage, const cv::Mat& srcMask, int radius = 8, double eps = 1e-3);
+    static cv::Mat refineEdgeMatting(const cv::Mat& rgbImage, const cv::Mat& existingMask, const cv::Mat& strokeRegion, int radius = 8, double eps = 1e-3);
 };
 
 } // namespace Core

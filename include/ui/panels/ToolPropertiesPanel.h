@@ -33,6 +33,7 @@ private:
     QWidget* createMagicWandWidget();
     QWidget* createLassoWidget();
     QWidget* createPolyLassoWidget();
+    QWidget* createRefineEdgeWidget();
     QWidget* createCropWidget();
     QWidget* createSelectWidget();
 
@@ -46,6 +47,13 @@ private:
     QSlider* m_sldHardness = nullptr;
     QSlider* m_sldOpacity = nullptr;
     QComboBox* m_cmbBrushMode = nullptr;
+
+    // Refine Edge controls
+    QSpinBox* m_spnRefineSize = nullptr;
+    QSlider* m_sldRefineSize = nullptr;
+    QSpinBox* m_spnRefineRadius = nullptr;
+    QSlider* m_sldRefineRadius = nullptr;
+    QCheckBox* m_chkDecontaminate = nullptr;
 
     // Magic Wand controls
     QSpinBox* m_spnWandTol = nullptr;

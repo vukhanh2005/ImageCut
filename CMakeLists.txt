@@ -54,9 +54,11 @@ set(TOOLS_SOURCES
     src/tools/MagicWandTool.cpp
     src/tools/LassoTool.cpp
     src/tools/PolyLassoTool.cpp
+    src/tools/RefineEdgeTool.cpp
     src/tools/CropTool.cpp
     src/tools/SelectTool.cpp
     include/tools/PolyLassoTool.h
+    include/tools/RefineEdgeTool.h
 )
 
 set(WORKERS_SOURCES
