@@ -25,11 +25,13 @@ signals:
     void autoRemoveSignal();
     void batchSignal();
     void exportSignal();
+    void toggleSnapSignal(bool enabled);
 
 public:
     QPushButton* btnAutoRemove = nullptr;
     QPushButton* btnUndo = nullptr;
     QPushButton* btnRedo = nullptr;
+    QPushButton* btnSnap = nullptr;
 
 private:
     QProgressBar* m_progressBar = nullptr;

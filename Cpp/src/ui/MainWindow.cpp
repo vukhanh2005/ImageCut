@@ -189,6 +189,9 @@ void MainWindow::initUiLayout() {
     connect(m_topBar, &TopBarPanel::autoRemoveSignal, this, &MainWindow::actionAutoRemove);
     connect(m_topBar, &TopBarPanel::batchSignal, this, &MainWindow::actionBatch);
     connect(m_topBar, &TopBarPanel::exportSignal, this, &MainWindow::actionExport);
+    connect(m_topBar, &TopBarPanel::toggleSnapSignal, [this](bool enabled) {
+        if (m_document) m_document->snapEnabled = enabled;
+    });
     mainVbox->addWidget(m_topBar);
 
     QHBoxLayout* contentHbox = new QHBoxLayout();

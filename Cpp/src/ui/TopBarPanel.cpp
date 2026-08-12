@@ -29,6 +29,13 @@ TopBarPanel::TopBarPanel(QWidget* parent)
     connect(btnRedo, &QPushButton::clicked, this, &TopBarPanel::redoSignal);
     layout->addWidget(btnRedo);
 
+    btnSnap = new QPushButton("🧲 Snap", this);
+    btnSnap->setCheckable(true);
+    btnSnap->setChecked(true);
+    btnSnap->setToolTip("Toggle Magnet Snapping to Canvas & Layer Edges");
+    connect(btnSnap, &QPushButton::toggled, this, &TopBarPanel::toggleSnapSignal);
+    layout->addWidget(btnSnap);
+
     QFrame* sep = new QFrame(this);
     sep->setFrameShape(QFrame::VLine);
     sep->setStyleSheet("color: #2D3748;");

@@ -308,11 +308,96 @@ void CanvasView::mouseMoveEvent(QMouseEvent* event) {
         auto lyr = m_document->getActiveLayer();
 
         if (m_dragMode == "move") {
+            m_snapLinesX.clear();
+            m_snapLinesY.clear();
+
             for (auto activeLyr : m_document->getActiveLayers()) {
                 if (!activeLyr->locked && m_dragStartLayerStates.find(activeLyr->id) != m_dragStartLayerStates.end()) {
                     auto [initX, initY, sX, sY, rot] = m_dragStartLayerStates[activeLyr->id];
-                    activeLyr->offsetX = initX + dx;
-                    activeLyr->offsetY = initY + dy;
+                    double targetX = initX + dx;
+                    double targetY = initY + dy;
+
+                    if (m_document->snapEnabled) {
+                        double lw = activeLyr->width() * activeLyr->scaleX;
+                        double lh = activeLyr->height() * activeLyr->scaleY;
+
+                        // Target snap lines
+                        std::vector<double> targetsX = { 0.0, m_document->canvasWidth / 2.0, static_cast<double>(m_document->canvasWidth) };
+                        std::vector<double> targetsY = { 0.0, m_document->canvasHeight / 2.0, static_cast<double>(m_document->canvasHeight) };
+
+                        for (const auto& otherLyr : m_document->layers) {
+                            if (!otherLyr || otherLyr->id == activeLyr->id || !otherLyr->visible) continue;
+                            double ow = otherLyr->width() * otherLyr->scaleX;
+                            double oh = otherLyr->height() * otherLyr->scaleY;
+                            targetsX.push_back(otherLyr->offsetX);
+                            targetsX.push_back(otherLyr->offsetX + ow / 2.0);
+                            targetsX.push_back(otherLyr->offsetX + ow);
+
+                            targetsY.push_back(otherLyr->offsetY);
+                            targetsY.push_back(otherLyr->offsetY + oh / 2.0);
+                            targetsY.push_back(otherLyr->offsetY + oh);
+                        }
+
+                        // Active layer points
+                        std::vector<std::pair<double, double>> activePtsX = {
+                            { targetX, 0.0 },
+                            { targetX + lw / 2.0, lw / 2.0 },
+                            { targetX + lw, lw }
+                        };
+
+                        std::vector<std::pair<double, double>> activePtsY = {
+                            { targetY, 0.0 },
+                            { targetY + lh / 2.0, lh / 2.0 },
+                            { targetY + lh, lh }
+                        };
+
+                        double snapThreshold = std::max(6.0, 10.0 / m_zoomFactor);
+
+                        // Snap X
+                        double minDiffX = snapThreshold;
+                        double bestSnapX = targetX;
+                        double guideX = -1.0;
+
+                        for (const auto& [pVal, pOffset] : activePtsX) {
+                            for (double tx : targetsX) {
+                                double diff = std::abs(pVal - tx);
+                                if (diff < minDiffX) {
+                                    minDiffX = diff;
+                                    bestSnapX = tx - pOffset;
+                                    guideX = tx;
+                                }
+                            }
+                        }
+
+                        if (guideX >= 0.0) {
+                            targetX = bestSnapX;
+                            m_snapLinesX.push_back(guideX);
+                        }
+
+                        // Snap Y
+                        double minDiffY = snapThreshold;
+                        double bestSnapY = targetY;
+                        double guideY = -1.0;
+
+                        for (const auto& [pVal, pOffset] : activePtsY) {
+                            for (double ty : targetsY) {
+                                double diff = std::abs(pVal - ty);
+                                if (diff < minDiffY) {
+                                    minDiffY = diff;
+                                    bestSnapY = ty - pOffset;
+                                    guideY = ty;
+                                }
+                            }
+                        }
+
+                        if (guideY >= 0.0) {
+                            targetY = bestSnapY;
+                            m_snapLinesY.push_back(guideY);
+                        }
+                    }
+
+                    activeLyr->offsetX = targetX;
+                    activeLyr->offsetY = targetY;
                 }
             }
         } else if (m_dragMode == "rot") {
@@ -424,6 +509,8 @@ void CanvasView::mouseReleaseEvent(QMouseEvent* event) {
         m_dragMode.clear();
         m_dragStartCanvasPos = QPointF();
         m_dragStartLayerStates.clear();
+        m_snapLinesX.clear();
+        m_snapLinesY.clear();
         updateViewport(false);
         if (m_document) m_document->notifyChanged();
         event->accept();
@@ -496,6 +583,24 @@ void CanvasView::drawForeground(QPainter* painter, const QRectF& rect) {
         painter->setPen(gridPen);
         for (int x = 0; x < cw; x += gridSize) painter->drawLine(x, 0, x, ch);
         for (int y = 0; y < ch; y += gridSize) painter->drawLine(0, y, cw, y);
+    }
+
+    // 2.5. Render Smart Magnet Snap Guide Lines (Magenta Highlight Lines)
+    if (!m_snapLinesX.empty() || !m_snapLinesY.empty()) {
+        QPen snapPen(QColor(255, 0, 128), 1.5 / m_zoomFactor, Qt::DashLine);
+        painter->setPen(snapPen);
+
+        for (double sx : m_snapLinesX) {
+            painter->drawLine(QPointF(sx, 0), QPointF(sx, ch));
+            painter->setBrush(QBrush(QColor(255, 0, 128)));
+            painter->drawEllipse(QPointF(sx, ch / 2.0), 4.0 / m_zoomFactor, 4.0 / m_zoomFactor);
+        }
+
+        for (double sy : m_snapLinesY) {
+            painter->drawLine(QPointF(0, sy), QPointF(cw, sy));
+            painter->setBrush(QBrush(QColor(255, 0, 128)));
+            painter->drawEllipse(QPointF(cw / 2.0, sy), 4.0 / m_zoomFactor, 4.0 / m_zoomFactor);
+        }
     }
 
     // 3. Selection Bounding Box & Handles
