@@ -22,6 +22,7 @@ void MaskEditCommand::execute() {
     auto target = m_layerId.isEmpty() ? m_document->getActiveLayer() : m_document->getLayerById(m_layerId);
     if (target) {
         target->mask = m_newMask.empty() ? cv::Mat() : m_newMask.clone();
+        target->invalidateCache();
         m_document->notifyChanged();
     }
 }
@@ -31,6 +32,7 @@ void MaskEditCommand::undo() {
     auto target = m_layerId.isEmpty() ? m_document->getActiveLayer() : m_document->getLayerById(m_layerId);
     if (target) {
         target->mask = m_oldMask.empty() ? cv::Mat() : m_oldMask.clone();
+        target->invalidateCache();
         m_document->notifyChanged();
     }
 }
@@ -45,12 +47,22 @@ DocumentActionCommand::DocumentActionCommand(ImageDocument* document,
 
 void DocumentActionCommand::execute() {
     if (m_redoFn) m_redoFn();
-    if (m_document) m_document->notifyChanged();
+    if (m_document) {
+        for (const auto& l : m_document->layers) {
+            if (l) l->invalidateCache();
+        }
+        m_document->notifyChanged();
+    }
 }
 
 void DocumentActionCommand::undo() {
     if (m_undoFn) m_undoFn();
-    if (m_document) m_document->notifyChanged();
+    if (m_document) {
+        for (const auto& l : m_document->layers) {
+            if (l) l->invalidateCache();
+        }
+        m_document->notifyChanged();
+    }
 }
 
 // UndoStack
