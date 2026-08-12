@@ -501,7 +501,7 @@ class CanvasView(QGraphicsView):
         # 4. Active Tool Overlay
         if self.active_tool:
             self.active_tool.draw_overlay(painter)
-)
+
 
 
     # Drag & Drop Multiple Image Support
