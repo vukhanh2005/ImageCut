@@ -376,24 +376,83 @@ class CanvasView(QGraphicsView):
         super().mouseReleaseEvent(event)
 
     def drawForeground(self, painter: QPainter, rect: QRectF):
-        """Renders tool overlays, selection bounding boxes, handles, and grid/guides."""
+        """Renders prominent canvas boundary frame, grid, layer handles, and tool overlays."""
         super().drawForeground(painter, rect)
 
-        # 1. Render Grid if enabled
-        if self.document and self.document.show_grid:
+        if not self.document:
+            return
+
+        cw = self.document.canvas_width
+        ch = self.document.canvas_height
+
+        # 1. Render Canvas Outer Boundary Frame (Neon Cyan + Amber Gold Corner Brackets)
+        # Main Cyan Outline Frame (2px sharp border)
+        frame_pen = QPen(QColor(0, 210, 255), 2.0 / self.zoom_factor)
+        painter.setPen(frame_pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(QRectF(0, 0, cw, ch))
+
+        # Outer Shadow Line around Canvas Frame
+        outer_pen = QPen(QColor(0, 0, 0, 160), 1.0 / self.zoom_factor)
+        painter.setPen(outer_pen)
+        painter.drawRect(QRectF(-1.0 / self.zoom_factor, -1.0 / self.zoom_factor, cw + 2.0 / self.zoom_factor, ch + 2.0 / self.zoom_factor))
+
+        # 4 Amber Gold Corner Brackets (L-shaped prominent corners)
+        bracket_len = min(40.0, max(12.0, 24.0 / self.zoom_factor))
+        bracket_pen = QPen(QColor(255, 170, 0), max(1.5, 3.0 / self.zoom_factor))
+        painter.setPen(bracket_pen)
+
+        # Top-Left Corner Bracket
+        painter.drawLine(QPointF(0, 0), QPointF(bracket_len, 0))
+        painter.drawLine(QPointF(0, 0), QPointF(0, bracket_len))
+
+        # Top-Right Corner Bracket
+        painter.drawLine(QPointF(cw, 0), QPointF(cw - bracket_len, 0))
+        painter.drawLine(QPointF(cw, 0), QPointF(cw, bracket_len))
+
+        # Bottom-Right Corner Bracket
+        painter.drawLine(QPointF(cw, ch), QPointF(cw - bracket_len, ch))
+        painter.drawLine(QPointF(cw, ch), QPointF(cw, ch - bracket_len))
+
+        # Bottom-Left Corner Bracket
+        painter.drawLine(QPointF(0, ch), QPointF(bracket_len, ch))
+        painter.drawLine(QPointF(0, ch), QPointF(0, ch - bracket_len))
+
+        # Floating Dimension Tag Badge Above Top-Left Corner
+        badge_text = f" Canvas: {cw} × {ch} px "
+        badge_font = painter.font()
+        badge_font.setPointPointSize(10)
+        badge_font.setBold(True)
+        painter.setFont(badge_font)
+
+        metrics = painter.fontMetrics()
+        text_w = metrics.horizontalAdvance(badge_text) + 12
+        text_h = metrics.height() + 6
+
+        # Position tag above canvas
+        badge_rect = QRectF(0, -text_h - (6.0 / self.zoom_factor), text_w, text_h)
+
+        # Draw rounded badge background with semi-transparent cyan glow
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(QColor(0, 120, 215, 230)))
+        painter.drawRoundedRect(badge_rect, 4, 4)
+
+        painter.setPen(QPen(QColor(255, 255, 255)))
+        painter.drawText(badge_rect, Qt.AlignmentFlag.AlignCenter, badge_text)
+
+        # 2. Render Grid if enabled
+        if self.document.show_grid:
             grid_size = self.document.grid_size
             pen = QPen(QColor(255, 255, 255, int(self.document.grid_opacity * 255)))
             pen.setStyle(Qt.PenStyle.DotLine)
             painter.setPen(pen)
-            w = self.document.canvas_width
-            h = self.document.canvas_height
-            for x in range(0, w, grid_size):
-                painter.drawLine(x, 0, x, h)
-            for y in range(0, h, grid_size):
-                painter.drawLine(0, y, w, y)
+            for x in range(0, cw, grid_size):
+                painter.drawLine(x, 0, x, ch)
+            for y in range(0, ch, grid_size):
+                painter.drawLine(0, y, cw, y)
 
-        # 2. Render Selection Bounding Box & Handles for active layer(s)
-        if self.document and self.document.active_layers:
+        # 3. Render Selection Bounding Box & Handles for active layer(s)
+        if self.document.active_layers:
             for lyr in self.document.active_layers:
                 poly, center, handles = self.get_layer_screen_polygon(lyr)
 
@@ -423,9 +482,10 @@ class CanvasView(QGraphicsView):
                             hrect = QRectF(hpos.x() - handle_sz / 2.0, hpos.y() - handle_sz / 2.0, handle_sz, handle_sz)
                             painter.drawRect(hrect)
 
-        # 3. Active Tool Overlay
+        # 4. Active Tool Overlay
         if self.active_tool:
             self.active_tool.draw_overlay(painter)
+
 
     # Drag & Drop Multiple Image Support
     def dragEnterEvent(self, event: QDragEnterEvent):
