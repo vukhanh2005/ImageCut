@@ -19,6 +19,7 @@
 #include "ui/panels/ImagePanel.h"
 #include "ui/panels/BackgroundPanel.h"
 #include "ui/panels/ToolPropertiesPanel.h"
+#include "ui/panels/ObjectPropertiesPanel.h"
 
 namespace ImageCut {
 namespace UI {
@@ -69,6 +70,7 @@ private:
     QTabWidget* m_rightTabs = nullptr;
 
     LayerManagerPanel* m_panelLayers = nullptr;
+    ObjectPropertiesPanel* m_panelObjectProperties = nullptr;
     TransformPanel* m_panelTransform = nullptr;
     MaskPanel* m_panelMask = nullptr;
     ImagePanel* m_panelImage = nullptr;

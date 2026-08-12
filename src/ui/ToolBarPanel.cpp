@@ -28,6 +28,8 @@ ToolBarPanel::ToolBarPanel(QWidget* parent)
 
     std::vector<ToolItem> tools = {
         { "Select", "Select & Pan Tool (H / Space)", "select" },
+        { "Text", "Add & Edit Text Layer (T)", "add_text" },
+        { "Shape", "Add Shape Layer (U)", "add_shape" },
         { "Brush", "Restore Brush Tool (B)", "brush" },
         { "Eraser", "Eraser Tool (E)", "eraser" },
         { "RefineEdge", "Refine Edge Hair Matting Tool (R)", "refine_edge" },

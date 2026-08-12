@@ -239,12 +239,14 @@ void MainWindow::initUiLayout() {
     m_panelLayers = new LayerManagerPanel(this);
     connect(m_panelLayers->btnAdd, &QToolButton::clicked, this, &MainWindow::actionImportImages);
 
+    m_panelObjectProperties = new ObjectPropertiesPanel(this);
     m_panelTransform = new TransformPanel(this);
     m_panelMask = new MaskPanel(this);
     m_panelImage = new ImagePanel(this);
     m_panelBg = new BackgroundPanel(this);
 
     m_rightTabs->addTab(m_panelLayers, "Layers");
+    m_rightTabs->addTab(m_panelObjectProperties, "Properties");
     m_rightTabs->addTab(m_panelTransform, "Transform");
     m_rightTabs->addTab(m_panelMask, "Mask");
     m_rightTabs->addTab(m_panelImage, "Image");
@@ -299,6 +301,7 @@ void MainWindow::initUiLayout() {
 void MainWindow::bindDocumentToPanels() {
     if (m_canvas) m_canvas->setDocument(m_document);
     if (m_panelLayers) m_panelLayers->setDocument(m_document);
+    if (m_panelObjectProperties) m_panelObjectProperties->setDocument(m_document);
     if (m_panelTransform) m_panelTransform->setDocument(m_document);
     if (m_panelMask) m_panelMask->setDocument(m_document);
     if (m_panelImage) m_panelImage->setDocument(m_document);
@@ -355,6 +358,12 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
         actionUndo();
     } else if ((mods == (Qt::ControlModifier | Qt::ShiftModifier) && key == Qt::Key_Z) || (mods == Qt::ControlModifier && key == Qt::Key_Y)) {
         actionRedo();
+    } else if (key == Qt::Key_T) {
+        m_toolBar->setActiveTool("Select");
+        actionAddTextLayer();
+    } else if (key == Qt::Key_U) {
+        m_toolBar->setActiveTool("Select");
+        actionAddShapeLayer();
     } else if (key == Qt::Key_B) {
         m_toolBar->setActiveTool("Brush");
         selectToolByName("Brush");
@@ -396,6 +405,16 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
 }
 
 void MainWindow::selectToolByName(const QString& toolName) {
+    if (toolName == "Text") {
+        actionAddTextLayer();
+        m_toolBar->setActiveTool("Select");
+        return;
+    } else if (toolName == "Shape") {
+        actionAddShapeLayer();
+        m_toolBar->setActiveTool("Select");
+        return;
+    }
+
     if (m_tools.find(toolName) != m_tools.end()) {
         auto tool = m_tools[toolName].get();
         m_canvas->setActiveTool(tool, toolName);
@@ -530,6 +549,10 @@ void MainWindow::actionAddTextLayer() {
         lyr->offsetX = (m_document->canvasWidth - 200) / 2.0;
         lyr->offsetY = (m_document->canvasHeight - 100) / 2.0;
         m_document->addLayer(lyr);
+        if (m_rightTabs && m_panelObjectProperties) {
+            m_rightTabs->setCurrentWidget(m_panelObjectProperties);
+            m_panelObjectProperties->updateProperties();
+        }
     }
 }
 
@@ -563,6 +586,10 @@ void MainWindow::actionAddShapeLayer() {
             lyr->offsetX = (m_document->canvasWidth - 240) / 2.0;
             lyr->offsetY = (m_document->canvasHeight - 240) / 2.0;
             m_document->addLayer(lyr);
+            if (m_rightTabs && m_panelObjectProperties) {
+                m_rightTabs->setCurrentWidget(m_panelObjectProperties);
+                m_panelObjectProperties->updateProperties();
+            }
         });
     }
 
