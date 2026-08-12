@@ -19,19 +19,24 @@ public:
 
 signals:
     void openSignal();
-    void saveSignal();
+    void openProjectSignal();
+    void saveProjectSignal();
     void undoSignal();
     void redoSignal();
     void autoRemoveSignal();
     void batchSignal();
     void exportSignal();
     void toggleSnapSignal(bool enabled);
+    void toggleRulersSignal(bool enabled);
+    void toggleGridSignal(bool enabled);
 
 public:
     QPushButton* btnAutoRemove = nullptr;
     QPushButton* btnUndo = nullptr;
     QPushButton* btnRedo = nullptr;
     QPushButton* btnSnap = nullptr;
+    QPushButton* btnRulers = nullptr;
+    QPushButton* btnGrid = nullptr;
 
 private:
     QProgressBar* m_progressBar = nullptr;

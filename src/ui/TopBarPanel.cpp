@@ -21,6 +21,18 @@ TopBarPanel::TopBarPanel(QWidget* parent)
     connect(btnOpen, &QPushButton::clicked, this, &TopBarPanel::openSignal);
     layout->addWidget(btnOpen);
 
+    QPushButton* btnOpenProj = new QPushButton(" Open Proj", this);
+    btnOpenProj->setIcon(UIIcons::getIcon("add_image", QColor(220, 230, 245), 20));
+    btnOpenProj->setToolTip("Open Existing Project File (.icproj)");
+    connect(btnOpenProj, &QPushButton::clicked, this, &TopBarPanel::openProjectSignal);
+    layout->addWidget(btnOpenProj);
+
+    QPushButton* btnSaveProj = new QPushButton(" Save Proj", this);
+    btnSaveProj->setIcon(UIIcons::getIcon("export", QColor(220, 230, 245), 20));
+    btnSaveProj->setToolTip("Save Current Project File (.icproj) (Ctrl+S)");
+    connect(btnSaveProj, &QPushButton::clicked, this, &TopBarPanel::saveProjectSignal);
+    layout->addWidget(btnSaveProj);
+
     btnUndo = new QPushButton(" Undo", this);
     btnUndo->setIcon(UIIcons::getIcon("undo", QColor(220, 230, 245), 20));
     btnUndo->setToolTip("Undo Last Action (Ctrl+Z)");
@@ -53,14 +65,40 @@ TopBarPanel::TopBarPanel(QWidget* parent)
             );
         }
     };
-
     updateSnapStyle(true);
-
     connect(btnSnap, &QPushButton::toggled, [this, updateSnapStyle](bool checked) {
         updateSnapStyle(checked);
         emit toggleSnapSignal(checked);
     });
     layout->addWidget(btnSnap);
+
+    btnRulers = new QPushButton(" Rulers", this);
+    btnRulers->setCheckable(true);
+    btnRulers->setChecked(false);
+    btnRulers->setToolTip("Toggle Top & Left Canvas Rulers (px / mm)");
+    connect(btnRulers, &QPushButton::toggled, [this](bool checked) {
+        if (checked) {
+            btnRulers->setStyleSheet("QPushButton { background-color: #00E6FF; color: black; border-radius: 6px; font-weight: bold; }");
+        } else {
+            btnRulers->setStyleSheet("");
+        }
+        emit toggleRulersSignal(checked);
+    });
+    layout->addWidget(btnRulers);
+
+    btnGrid = new QPushButton(" Grid", this);
+    btnGrid->setCheckable(true);
+    btnGrid->setChecked(false);
+    btnGrid->setToolTip("Toggle Canvas Alignment Grid");
+    connect(btnGrid, &QPushButton::toggled, [this](bool checked) {
+        if (checked) {
+            btnGrid->setStyleSheet("QPushButton { background-color: #00E6FF; color: black; border-radius: 6px; font-weight: bold; }");
+        } else {
+            btnGrid->setStyleSheet("");
+        }
+        emit toggleGridSignal(checked);
+    });
+    layout->addWidget(btnGrid);
 
     QFrame* sep = new QFrame(this);
     sep->setFrameShape(QFrame::VLine);

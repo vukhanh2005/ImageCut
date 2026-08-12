@@ -674,11 +674,92 @@ void CanvasView::drawForeground(QPainter* painter, const QRectF& rect) {
     // 2. Render Grid if enabled
     if (m_document->showGrid) {
         int gridSize = m_document->gridSize;
-        QPen gridPen(QColor(255, 255, 255, static_cast<int>(m_document->gridOpacity * 255)));
-        gridPen.setStyle(Qt::DotLine);
-        painter->setPen(gridPen);
-        for (int x = 0; x < cw; x += gridSize) painter->drawLine(x, 0, x, ch);
-        for (int y = 0; y < ch; y += gridSize) painter->drawLine(0, y, cw, y);
+        QPen subGridPen(QColor(255, 255, 255, static_cast<int>(m_document->gridOpacity * 180)), 1.0 / m_zoomFactor, Qt::DotLine);
+        QPen majGridPen(QColor(0, 210, 255, static_cast<int>(m_document->gridOpacity * 255)), 1.5 / m_zoomFactor, Qt::SolidLine);
+
+        for (int x = 0; x <= cw; x += gridSize) {
+            painter->setPen((x % 100 == 0) ? majGridPen : subGridPen);
+            painter->drawLine(QPointF(x, 0), QPointF(x, ch));
+        }
+        for (int y = 0; y <= ch; y += gridSize) {
+            painter->setPen((y % 100 == 0) ? majGridPen : subGridPen);
+            painter->drawLine(QPointF(0, y), QPointF(cw, y));
+        }
+    }
+
+    // 2.7. Render Top & Left Rulers if enabled
+    if (m_document->showRulers) {
+        double rThick = 24.0 / m_zoomFactor;
+
+        // Background ruler bars
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(QBrush(QColor(24, 25, 36, 230)));
+        painter->drawRect(QRectF(-rThick, -rThick, cw + rThick, rThick));
+        painter->drawRect(QRectF(-rThick, 0, rThick, ch));
+
+        // Ruler outer border lines
+        QPen rBorderPen(QColor(0, 210, 255, 180), 1.0 / m_zoomFactor);
+        painter->setPen(rBorderPen);
+        painter->drawLine(QPointF(-rThick, 0), QPointF(cw, 0));
+        painter->drawLine(QPointF(0, -rThick), QPointF(0, ch));
+
+        QFont rFont = painter->font();
+        rFont.setPointSizeF(std::max(6.0, 8.5 / m_zoomFactor));
+        rFont.setBold(true);
+        painter->setFont(rFont);
+
+        QPen tickPen(QColor(200, 210, 225), 1.0 / m_zoomFactor);
+        QPen majTickPen(QColor(0, 210, 255), 1.2 / m_zoomFactor);
+
+        int step = (m_zoomFactor < 0.5) ? 200 : ((m_zoomFactor > 2.0) ? 50 : 100);
+        int subStep = step / 5;
+
+        // Top Ruler Ticks & Labels
+        for (int x = 0; x <= static_cast<int>(cw); x += subStep) {
+            bool isMajor = (x % step == 0);
+            double tickH = isMajor ? (14.0 / m_zoomFactor) : (7.0 / m_zoomFactor);
+            painter->setPen(isMajor ? majTickPen : tickPen);
+            painter->drawLine(QPointF(x, -tickH), QPointF(x, 0));
+
+            if (isMajor && x < static_cast<int>(cw)) {
+                painter->setPen(QPen(QColor(240, 245, 255)));
+                QRectF textRect(x + 2.0 / m_zoomFactor, -rThick, step, rThick - 4.0 / m_zoomFactor);
+                painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, QString::number(x));
+            }
+        }
+
+        // Left Ruler Ticks & Labels
+        for (int y = 0; y <= static_cast<int>(ch); y += subStep) {
+            bool isMajor = (y % step == 0);
+            double tickW = isMajor ? (14.0 / m_zoomFactor) : (7.0 / m_zoomFactor);
+            painter->setPen(isMajor ? majTickPen : tickPen);
+            painter->drawLine(QPointF(-tickW, y), QPointF(0, y));
+
+            if (isMajor && y < static_cast<int>(ch)) {
+                painter->setPen(QPen(QColor(240, 245, 255)));
+                QRectF textRect(-rThick + 2.0 / m_zoomFactor, y + 2.0 / m_zoomFactor, rThick - 4.0 / m_zoomFactor, step);
+                painter->drawText(textRect, Qt::AlignLeft | Qt::AlignTop, QString::number(y));
+            }
+        }
+
+        // Mouse Tracker lines on Top & Left Rulers
+        if (m_hoverImgPos.x() >= 0 && m_hoverImgPos.x() <= cw) {
+            QPen trackerPen(QColor(255, 0, 128), 1.5 / m_zoomFactor);
+            painter->setPen(trackerPen);
+            painter->drawLine(QPointF(m_hoverImgPos.x(), -rThick), QPointF(m_hoverImgPos.x(), 0));
+        }
+        if (m_hoverImgPos.y() >= 0 && m_hoverImgPos.y() <= ch) {
+            QPen trackerPen(QColor(255, 0, 128), 1.5 / m_zoomFactor);
+            painter->setPen(trackerPen);
+            painter->drawLine(QPointF(-rThick, m_hoverImgPos.y()), QPointF(0, m_hoverImgPos.y()));
+        }
+
+        // Corner unit square
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(QBrush(QColor(0, 120, 215)));
+        painter->drawRect(QRectF(-rThick, -rThick, rThick, rThick));
+        painter->setPen(QPen(Qt::white));
+        painter->drawText(QRectF(-rThick, -rThick, rThick, rThick), Qt::AlignCenter, "px");
     }
 
     // 2.5. Render Smart Magnet Snap Guide Lines (Magenta Highlight Lines)

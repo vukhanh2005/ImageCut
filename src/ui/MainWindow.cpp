@@ -66,10 +66,11 @@ void MainWindow::initMenuBar() {
 
     menuFile->addSeparator();
 
-    QAction* actOpenProj = menuFile->addAction("Open Project (.bgrem)...");
+    QAction* actOpenProj = menuFile->addAction("📁 Open Project (.icproj)...");
+    actOpenProj->setShortcut(QKeySequence("Ctrl+Shift+O"));
     connect(actOpenProj, &QAction::triggered, this, &MainWindow::actionOpenProject);
 
-    QAction* actSaveProj = menuFile->addAction("&Save Project (.bgrem)");
+    QAction* actSaveProj = menuFile->addAction("💾 Save Project (.icproj)");
     actSaveProj->setShortcut(QKeySequence("Ctrl+S"));
     connect(actSaveProj, &QAction::triggered, this, &MainWindow::actionSaveProject);
 
@@ -187,6 +188,8 @@ void MainWindow::initUiLayout() {
 
     m_topBar = new TopBarPanel(this);
     connect(m_topBar, &TopBarPanel::openSignal, this, &MainWindow::actionImportImages);
+    connect(m_topBar, &TopBarPanel::openProjectSignal, this, &MainWindow::actionOpenProject);
+    connect(m_topBar, &TopBarPanel::saveProjectSignal, this, &MainWindow::actionSaveProject);
     connect(m_topBar, &TopBarPanel::undoSignal, this, &MainWindow::actionUndo);
     connect(m_topBar, &TopBarPanel::redoSignal, this, &MainWindow::actionRedo);
     connect(m_topBar, &TopBarPanel::autoRemoveSignal, this, &MainWindow::actionAutoRemove);
@@ -194,6 +197,18 @@ void MainWindow::initUiLayout() {
     connect(m_topBar, &TopBarPanel::exportSignal, this, &MainWindow::actionExport);
     connect(m_topBar, &TopBarPanel::toggleSnapSignal, [this](bool enabled) {
         if (m_document) m_document->snapEnabled = enabled;
+    });
+    connect(m_topBar, &TopBarPanel::toggleRulersSignal, [this](bool enabled) {
+        if (m_document) {
+            m_document->showRulers = enabled;
+            if (m_canvas && m_canvas->viewport()) m_canvas->viewport()->update();
+        }
+    });
+    connect(m_topBar, &TopBarPanel::toggleGridSignal, [this](bool enabled) {
+        if (m_document) {
+            m_document->showGrid = enabled;
+            if (m_canvas && m_canvas->viewport()) m_canvas->viewport()->update();
+        }
     });
     mainVbox->addWidget(m_topBar);
 
@@ -428,7 +443,7 @@ void MainWindow::actionOpenSingleImage() {
 }
 
 void MainWindow::actionOpenProject() {
-    QString path = QFileDialog::getOpenFileName(this, "Open Project", "", "Project Files (*.bgrem)");
+    QString path = QFileDialog::getOpenFileName(this, "Open ImageCut Project", "", "ImageCut Project Files (*.icproj *.bgrem);;All Files (*.*)");
     if (!path.isEmpty()) {
         auto doc = Core::ProjectManager::loadProject(path);
         if (doc) {
@@ -448,7 +463,7 @@ void MainWindow::actionSaveProject() {
         return;
     }
 
-    QString path = QFileDialog::getSaveFileName(this, "Save Project", "project.bgrem", "Project Files (*.bgrem)");
+    QString path = QFileDialog::getSaveFileName(this, "Save ImageCut Project", "project.icproj", "ImageCut Project Files (*.icproj);;Legacy (*.bgrem)");
     if (!path.isEmpty()) {
         bool ok = Core::ProjectManager::saveProject(m_document, path);
         if (ok) {
