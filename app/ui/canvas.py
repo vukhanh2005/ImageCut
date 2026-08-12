@@ -47,6 +47,8 @@ class CanvasView(QGraphicsView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.active_tool_name = "Select"
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
 
     def set_document(self, doc: ImageDocument):
@@ -56,9 +58,19 @@ class CanvasView(QGraphicsView):
         self.update_canvas()
         self.fit_in_view()
 
-    def set_active_tool(self, tool):
+    def set_active_tool(self, tool, tool_name: str = "Select"):
         self.active_tool = tool
+        self.active_tool_name = tool_name
         self.viewport().update()
+
+    def is_select_tool_active(self) -> bool:
+        if self.active_tool is None:
+            return True
+        from app.tools.select_tool import SelectMoveTool
+        if isinstance(self.active_tool, SelectMoveTool):
+            return True
+        return getattr(self, "active_tool_name", "Select") == "Select"
+
 
     def update_canvas(self, fast_drag: bool = False):
         """Renders composite multi-layer scene and updates canvas scene Rect."""
@@ -222,32 +234,31 @@ class CanvasView(QGraphicsView):
             return
 
         scene_pos = self.mapToScene(event.position().toPoint())
+        is_select_mode = self.is_select_tool_active()
 
-        # Check handle click first
-        handle = self.get_handle_at_point(scene_pos)
-        if handle and self.document and self.document.active_layer:
-            self.drag_mode = handle
-            self.drag_start_canvas_pos = scene_pos
-            self.drag_start_layer_states = {}
-            for lyr in self.document.active_layers:
-                self.drag_start_layer_states[lyr.id] = (lyr.offset_x, lyr.offset_y, lyr.scale_x, lyr.scale_y, lyr.rotation)
-            event.accept()
-            return
-
-        # Direct Object Selection on Canvas
-        clicked_layer = self.get_layer_at_point(scene_pos)
-        if clicked_layer:
-            multi = (event.modifiers() & Qt.KeyboardModifier.ControlModifier) or (event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
-            self.document.select_layer(clicked_layer.id, multi_select=bool(multi))
-            if not clicked_layer.locked:
-                self.drag_mode = "move"
+        # Handle click & layer selection ONLY if Select Tool is active
+        if is_select_mode:
+            handle = self.get_handle_at_point(scene_pos)
+            if handle and self.document and self.document.active_layer:
+                self.drag_mode = handle
                 self.drag_start_canvas_pos = scene_pos
                 self.drag_start_layer_states = {}
                 for lyr in self.document.active_layers:
                     self.drag_start_layer_states[lyr.id] = (lyr.offset_x, lyr.offset_y, lyr.scale_x, lyr.scale_y, lyr.rotation)
-        else:
-            if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
-                pass  # Keep selection or active tool
+                event.accept()
+                return
+
+            # Direct Object Selection on Canvas
+            clicked_layer = self.get_layer_at_point(scene_pos)
+            if clicked_layer:
+                multi = (event.modifiers() & Qt.KeyboardModifier.ControlModifier) or (event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                self.document.select_layer(clicked_layer.id, multi_select=bool(multi))
+                if not clicked_layer.locked:
+                    self.drag_mode = "move"
+                    self.drag_start_canvas_pos = scene_pos
+                    self.drag_start_layer_states = {}
+                    for lyr in self.document.active_layers:
+                        self.drag_start_layer_states[lyr.id] = (lyr.offset_x, lyr.offset_y, lyr.scale_x, lyr.scale_y, lyr.rotation)
 
         if self.active_tool and self.drag_mode is None:
             self.active_tool.mouse_press(scene_pos, event)
@@ -266,20 +277,24 @@ class CanvasView(QGraphicsView):
 
         scene_pos = self.mapToScene(event.position().toPoint())
         self.hover_img_pos = scene_pos
+        is_select_mode = self.is_select_tool_active()
 
-        # Update Mouse Cursor based on handle hover
+        # Update Mouse Cursor based on handle hover (ONLY when Select tool is active)
         if self.drag_mode is None:
-            handle = self.get_handle_at_point(scene_pos)
-            if handle == "rot":
-                self.setCursor(Qt.CursorShape.PointingHandCursor)
-            elif handle in ["tl", "br"]:
-                self.setCursor(Qt.CursorShape.SizeFDiagCursor)
-            elif handle in ["tr", "bl"]:
-                self.setCursor(Qt.CursorShape.SizeBDiagCursor)
-            elif handle in ["tc", "bc"]:
-                self.setCursor(Qt.CursorShape.SizeVerCursor)
-            elif handle in ["ml", "mr"]:
-                self.setCursor(Qt.CursorShape.SizeHorCursor)
+            if is_select_mode:
+                handle = self.get_handle_at_point(scene_pos)
+                if handle == "rot":
+                    self.setCursor(Qt.CursorShape.PointingHandCursor)
+                elif handle in ["tl", "br"]:
+                    self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+                elif handle in ["tr", "bl"]:
+                    self.setCursor(Qt.CursorShape.SizeBDiagCursor)
+                elif handle in ["tc", "bc"]:
+                    self.setCursor(Qt.CursorShape.SizeVerCursor)
+                elif handle in ["ml", "mr"]:
+                    self.setCursor(Qt.CursorShape.SizeHorCursor)
+                else:
+                    self.unsetCursor()
             else:
                 self.unsetCursor()
 
@@ -367,7 +382,6 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
-
         scene_pos = self.mapToScene(event.position().toPoint())
         if self.active_tool:
             self.active_tool.mouse_release(scene_pos, event)
@@ -453,6 +467,7 @@ class CanvasView(QGraphicsView):
 
         # 3. Render Selection Bounding Box & Handles for active layer(s)
         if self.document.active_layers:
+            is_select_mode = self.is_select_tool_active()
             for lyr in self.document.active_layers:
                 poly, center, handles = self.get_layer_screen_polygon(lyr)
 
@@ -463,7 +478,8 @@ class CanvasView(QGraphicsView):
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawPolygon(poly)
 
-                if not lyr.locked:
+                # Render Handles ONLY when Select Tool is active
+                if not lyr.locked and is_select_mode:
                     # Draw Line to Rotation Handle
                     painter.setPen(QPen(QColor(0, 120, 215), 1.0 / self.zoom_factor))
                     painter.drawLine(handles["tc"], handles["rot"])
@@ -485,6 +501,7 @@ class CanvasView(QGraphicsView):
         # 4. Active Tool Overlay
         if self.active_tool:
             self.active_tool.draw_overlay(painter)
+)
 
 
     # Drag & Drop Multiple Image Support

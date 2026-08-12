@@ -372,8 +372,9 @@ class MainWindow(QMainWindow):
     def select_tool_by_name(self, tool_name: str):
         if tool_name in self.tools:
             tool = self.tools[tool_name]
-            self.canvas.set_active_tool(tool)
+            self.canvas.set_active_tool(tool, tool_name=tool_name)
             self.lbl_status_msg.setText(f"Active Tool: {tool_name}")
+
 
     # Import Methods
     def import_image_files(self, file_paths: List[str]):
