@@ -231,7 +231,7 @@ void CanvasView::mousePressEvent(QMouseEvent* event) {
             m_dragStartLayerStates.clear();
 
             for (const auto& lyr : m_document->getActiveLayers()) {
-                m_dragStartLayerStates[lyr->id] = std::make_tuple(lyr->offsetX, lyr->offsetY, lyr->scaleX, lyr->scaleY, lyr->rotation);
+                m_dragStartLayerStates[lyr->id] = std::make_tuple(lyr->offsetX, lyr->offsetY, lyr->scaleX, lyr->scaleY, lyr->rotation, lyr->fontSize);
             }
             event->accept();
             return;
@@ -263,7 +263,7 @@ void CanvasView::mousePressEvent(QMouseEvent* event) {
             m_dragStartCanvasPos = scenePos;
             m_dragStartLayerStates.clear();
             for (const auto& lyr : m_document->getActiveLayers()) {
-                m_dragStartLayerStates[lyr->id] = std::make_tuple(lyr->offsetX, lyr->offsetY, lyr->scaleX, lyr->scaleY, lyr->rotation);
+                m_dragStartLayerStates[lyr->id] = std::make_tuple(lyr->offsetX, lyr->offsetY, lyr->scaleX, lyr->scaleY, lyr->rotation, lyr->fontSize);
             }
         }
     }
@@ -313,7 +313,7 @@ void CanvasView::mouseMoveEvent(QMouseEvent* event) {
 
             for (auto activeLyr : m_document->getActiveLayers()) {
                 if (!activeLyr->locked && m_dragStartLayerStates.find(activeLyr->id) != m_dragStartLayerStates.end()) {
-                    auto [initX, initY, sX, sY, rot] = m_dragStartLayerStates[activeLyr->id];
+                    auto [initX, initY, sX, sY, rot, initFontSize] = m_dragStartLayerStates[activeLyr->id];
                     double targetX = initX + dx;
                     double targetY = initY + dy;
 
@@ -401,7 +401,7 @@ void CanvasView::mouseMoveEvent(QMouseEvent* event) {
                 }
             }
         } else if (m_dragMode == "rot") {
-            auto [initX, initY, sX, sY, initRot] = m_dragStartLayerStates[lyr->id];
+            auto [initX, initY, sX, sY, initRot, initFontSize] = m_dragStartLayerStates[lyr->id];
             double cx = initX + (lyr->width() * lyr->scaleX) / 2.0;
             double cy = initY + (lyr->height() * lyr->scaleY) / 2.0;
 
@@ -414,7 +414,7 @@ void CanvasView::mouseMoveEvent(QMouseEvent* event) {
             m_snapLinesX.clear();
             m_snapLinesY.clear();
 
-            auto [initX, initY, initSx, initSy, rot] = m_dragStartLayerStates[lyr->id];
+            auto [initX, initY, initSx, initSy, rot, initFontSize] = m_dragStartLayerStates[lyr->id];
             double origW = lyr->width();
             double origH = lyr->height();
 
@@ -521,16 +521,32 @@ void CanvasView::mouseMoveEvent(QMouseEvent* event) {
                 }
             }
 
-            lyr->scaleX = newW / origW;
-            lyr->scaleY = newH / origH;
-            lyr->offsetX = newX;
-            lyr->offsetY = newY;
+            if (lyr->layerType == "text") {
+                double scaleFactor = (newW / origW + newH / origH) / 2.0;
+                int newFontSize = std::max(6, static_cast<int>(std::round(initFontSize * scaleFactor)));
+                if (newFontSize != lyr->fontSize) {
+                    lyr->fontSize = newFontSize;
+                    lyr->scaleX = 1.0;
+                    lyr->scaleY = 1.0;
+                    lyr->invalidateCache();
+                } else {
+                    lyr->scaleX = 1.0;
+                    lyr->scaleY = 1.0;
+                }
+                lyr->offsetX = newX;
+                lyr->offsetY = newY;
+            } else {
+                lyr->scaleX = newW / origW;
+                lyr->scaleY = newH / origH;
+                lyr->offsetX = newX;
+                lyr->offsetY = newY;
 
-            if (lyr->lockAspect) {
-                if (m_dragMode == "br" || m_dragMode == "tl" || m_dragMode == "tr" || m_dragMode == "bl") {
-                    double avgScale = (lyr->scaleX + lyr->scaleY) / 2.0;
-                    lyr->scaleX = avgScale;
-                    lyr->scaleY = avgScale;
+                if (lyr->lockAspect) {
+                    if (m_dragMode == "br" || m_dragMode == "tl" || m_dragMode == "tr" || m_dragMode == "bl") {
+                        double avgScale = (lyr->scaleX + lyr->scaleY) / 2.0;
+                        lyr->scaleX = avgScale;
+                        lyr->scaleY = avgScale;
+                    }
                 }
             }
         }
@@ -561,12 +577,12 @@ void CanvasView::mouseReleaseEvent(QMouseEvent* event) {
 
     if (!m_dragMode.isEmpty()) {
         if (m_document && !m_dragStartLayerStates.empty()) {
-            std::map<QString, std::tuple<double, double, double, double, double>> startStates = m_dragStartLayerStates;
-            std::map<QString, std::tuple<double, double, double, double, double>> endStates;
+            std::map<QString, std::tuple<double, double, double, double, double, int>> startStates = m_dragStartLayerStates;
+            std::map<QString, std::tuple<double, double, double, double, double, int>> endStates;
             bool changed = false;
 
             for (const auto& lyr : m_document->getActiveLayers()) {
-                endStates[lyr->id] = std::make_tuple(lyr->offsetX, lyr->offsetY, lyr->scaleX, lyr->scaleY, lyr->rotation);
+                endStates[lyr->id] = std::make_tuple(lyr->offsetX, lyr->offsetY, lyr->scaleX, lyr->scaleY, lyr->rotation, lyr->fontSize);
                 if (startStates.find(lyr->id) != startStates.end() && startStates[lyr->id] != endStates[lyr->id]) {
                     changed = true;
                 }
@@ -577,10 +593,11 @@ void CanvasView::mouseReleaseEvent(QMouseEvent* event) {
                     for (const auto& [lid, state] : startStates) {
                         auto l = doc->getLayerById(lid);
                         if (l) {
-                            auto [x, y, sx, sy, r] = state;
+                            auto [x, y, sx, sy, r, fs] = state;
                             l->offsetX = x; l->offsetY = y;
                             l->scaleX = sx; l->scaleY = sy;
-                            l->rotation = r;
+                            l->rotation = r; l->fontSize = fs;
+                            l->invalidateCache();
                         }
                     }
                 };
@@ -589,10 +606,11 @@ void CanvasView::mouseReleaseEvent(QMouseEvent* event) {
                     for (const auto& [lid, state] : endStates) {
                         auto l = doc->getLayerById(lid);
                         if (l) {
-                            auto [x, y, sx, sy, r] = state;
+                            auto [x, y, sx, sy, r, fs] = state;
                             l->offsetX = x; l->offsetY = y;
                             l->scaleX = sx; l->scaleY = sy;
-                            l->rotation = r;
+                            l->rotation = r; l->fontSize = fs;
+                            l->invalidateCache();
                         }
                     }
                 };

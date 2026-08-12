@@ -34,11 +34,35 @@ BackgroundPanel::BackgroundPanel(QWidget* parent)
     QVBoxLayout* vboxColor = new QVBoxLayout(m_grpColor);
     QPushButton* btnPickColor = new QPushButton("🎨 Pick Color", this);
     connect(btnPickColor, &QPushButton::clicked, [this]() {
-        QColor col = QColorDialog::getColor(Qt::white, this, "Select Background Color");
-        if (col.isValid() && m_doc) {
-            m_doc->bgColor = col;
-            m_doc->notifyChanged();
-        }
+        if (!m_doc) return;
+        QColor initial = m_doc->bgColor;
+        QColorDialog* dlg = new QColorDialog(initial, this);
+        dlg->setWindowTitle("Select Background Color");
+        dlg->setOption(QColorDialog::ShowAlphaChannel, true);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+
+        connect(dlg, &QColorDialog::currentColorChanged, [this](const QColor& color) {
+            if (color.isValid() && m_doc) {
+                m_doc->bgColor = color;
+                m_doc->notifyChanged();
+            }
+        });
+
+        connect(dlg, &QColorDialog::colorSelected, [this](const QColor& color) {
+            if (color.isValid() && m_doc) {
+                m_doc->bgColor = color;
+                m_doc->notifyChanged();
+            }
+        });
+
+        connect(dlg, &QColorDialog::rejected, [this, initial]() {
+            if (m_doc) {
+                m_doc->bgColor = initial;
+                m_doc->notifyChanged();
+            }
+        });
+
+        dlg->open();
     });
     vboxColor->addWidget(btnPickColor);
 

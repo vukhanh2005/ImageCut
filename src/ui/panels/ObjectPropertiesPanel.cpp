@@ -54,11 +54,35 @@ void ObjectPropertiesPanel::initUi() {
 }
 
 void ObjectPropertiesPanel::pickColor(const QString& title, QColor initial, std::function<void(const QColor&)> onPicked) {
-    QColor c = QColorDialog::getColor(initial, this, title, QColorDialog::ShowAlphaChannel);
-    if (c.isValid() && onPicked) {
-        onPicked(c);
-        if (m_document) m_document->notifyChanged();
-    }
+    QColorDialog* dlg = new QColorDialog(initial, this);
+    dlg->setWindowTitle(title);
+    dlg->setOption(QColorDialog::ShowAlphaChannel, true);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+
+    QColor originalColor = initial;
+
+    connect(dlg, &QColorDialog::currentColorChanged, [this, onPicked](const QColor& color) {
+        if (color.isValid() && onPicked) {
+            onPicked(color);
+            if (m_document) m_document->notifyChanged();
+        }
+    });
+
+    connect(dlg, &QColorDialog::colorSelected, [this, onPicked](const QColor& color) {
+        if (color.isValid() && onPicked) {
+            onPicked(color);
+            if (m_document) m_document->notifyChanged();
+        }
+    });
+
+    connect(dlg, &QColorDialog::rejected, [this, onPicked, originalColor]() {
+        if (onPicked) {
+            onPicked(originalColor);
+            if (m_document) m_document->notifyChanged();
+        }
+    });
+
+    dlg->open();
 }
 
 QWidget* ObjectPropertiesPanel::createEmptyWidget() {

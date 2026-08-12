@@ -81,7 +81,7 @@ private:
     // Transform drag state
     QString m_dragMode; // "", "move", "rot", "tl", "tr", etc.
     QPointF m_dragStartCanvasPos;
-    std::map<QString, std::tuple<double, double, double, double, double>> m_dragStartLayerStates;
+    std::map<QString, std::tuple<double, double, double, double, double, int>> m_dragStartLayerStates;
 
     // Smart Magnet / Snap Guide Lines
     std::vector<double> m_snapLinesX;
