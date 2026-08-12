@@ -23,7 +23,7 @@ public:
     ~ExportWorker() override = default;
 
 signals:
-    void finished(const QString& outputPath);
+    void exportFinished(const QString& outputPath);
     void error(const QString& errorMsg);
 
 protected:

@@ -75,7 +75,6 @@ cv::Mat ImageUtils::loadImage(const QString& filepath) {
 
 bool ImageUtils::saveImage(const QString& filepath, const cv::Mat& mat, int quality) {
     if (mat.empty()) return false;
-    std::string pathStd = filepath.toStdString();
     cv::Mat toSave = mat.clone();
 
     if (toSave.channels() == 3) {
@@ -85,18 +84,36 @@ bool ImageUtils::saveImage(const QString& filepath, const cv::Mat& mat, int qual
     }
 
     std::vector<int> params;
+    QString ext = ".png";
     if (filepath.endsWith(".jpg", Qt::CaseInsensitive) || filepath.endsWith(".jpeg", Qt::CaseInsensitive)) {
         params.push_back(cv::IMWRITE_JPEG_QUALITY);
         params.push_back(quality);
+        ext = ".jpg";
     } else if (filepath.endsWith(".webp", Qt::CaseInsensitive)) {
         params.push_back(cv::IMWRITE_WEBP_QUALITY);
         params.push_back(quality);
+        ext = ".webp";
     } else if (filepath.endsWith(".png", Qt::CaseInsensitive)) {
         params.push_back(cv::IMWRITE_PNG_COMPRESSION);
         params.push_back(6);
+        ext = ".png";
     }
 
-    return cv::imwrite(pathStd, toSave, params);
+    std::vector<uchar> buf;
+    if (!cv::imencode(ext.toStdString(), toSave, buf, params)) {
+        LOG_ERROR("cv::imencode failed for format: " + ext.toStdString());
+        return false;
+    }
+
+    QFile file(filepath);
+    if (!file.open(QIODevice::WriteOnly)) {
+        LOG_ERROR("QFile::open failed for path: " + filepath.toStdString());
+        return false;
+    }
+
+    qint64 bytesWritten = file.write(reinterpret_cast<const char*>(buf.data()), static_cast<qint64>(buf.size()));
+    file.close();
+    return (bytesWritten == static_cast<qint64>(buf.size()));
 }
 
 cv::Mat ImageUtils::createCheckerboardPattern(int size, int squareSize, uint8_t c1, uint8_t c2) {

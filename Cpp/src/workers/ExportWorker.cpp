@@ -62,7 +62,7 @@ void ExportWorker::run() {
         }
 
         LOG_INFO("Successfully exported image to: " + m_outputPath.toStdString());
-        emit finished(m_outputPath);
+        emit exportFinished(m_outputPath);
     } catch (const std::exception& e) {
         LOG_ERROR(std::string("Failed to export image: ") + e.what());
         emit error(QString::fromStdString(e.what()));

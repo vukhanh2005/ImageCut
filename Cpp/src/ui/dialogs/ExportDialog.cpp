@@ -7,6 +7,7 @@
 #include <QGroupBox>
 #include <QFileDialog>
 #include <QDir>
+#include <QMessageBox>
 
 namespace ImageCut {
 namespace UI {
@@ -139,15 +140,21 @@ void ExportDialog::doExport() {
 
     m_btnExport->setEnabled(false);
     auto worker = new Workers::ExportWorker(m_doc, path, fmt, qual, w, h);
-    connect(worker, &Workers::ExportWorker::finished, [this, worker]() {
-        worker->deleteLater();
+    
+    // Safely delete worker object ONLY after QThread has completely stopped running!
+    connect(worker, &QThread::finished, worker, &QObject::deleteLater);
+
+    connect(worker, &Workers::ExportWorker::exportFinished, this, [this](const QString& outPath) {
+        LOG_INFO("Export completed: " + outPath.toStdString());
         accept();
-    });
-    connect(worker, &Workers::ExportWorker::error, [this, worker](const QString& err) {
+    }, Qt::QueuedConnection);
+
+    connect(worker, &Workers::ExportWorker::error, this, [this](const QString& err) {
         LOG_ERROR("Export Error: " + err.toStdString());
         m_btnExport->setEnabled(true);
-        worker->deleteLater();
-    });
+        QMessageBox::critical(this, "Export Failed", "Could not export image:\n" + err);
+    }, Qt::QueuedConnection);
+
     worker->start();
 }
 
