@@ -34,12 +34,17 @@ private:
     QWidget* createLassoWidget();
     QWidget* createPolyLassoWidget();
     QWidget* createRefineEdgeWidget();
+    QWidget* createEyedropperWidget();
     QWidget* createCropWidget();
     QWidget* createSelectWidget();
 
     QLabel* m_lblToolIcon = nullptr;
     QLabel* m_lblToolName = nullptr;
     QStackedWidget* m_stackedWidgets = nullptr;
+
+    // Eyedropper controls
+    QLabel* m_lblColorSwatch = nullptr;
+    QLabel* m_lblColorHex = nullptr;
 
     // Brush controls
     QSpinBox* m_spnBrushSize = nullptr;

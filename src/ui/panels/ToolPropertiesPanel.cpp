@@ -4,6 +4,7 @@
 #include "tools/LassoTool.h"
 #include "tools/PolyLassoTool.h"
 #include "tools/RefineEdgeTool.h"
+#include "tools/EyedropperTool.h"
 #include "tools/CropTool.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -54,6 +55,7 @@ void ToolPropertiesPanel::initUi() {
     m_stackedWidgets->addWidget(createCropWidget());       // 4: Crop
     m_stackedWidgets->addWidget(createPolyLassoWidget());  // 5: PolyLasso
     m_stackedWidgets->addWidget(createRefineEdgeWidget()); // 6: RefineEdge
+    m_stackedWidgets->addWidget(createEyedropperWidget()); // 7: Eyedropper
 
     layout->addWidget(m_stackedWidgets, 1);
 }
@@ -348,6 +350,31 @@ QWidget* ToolPropertiesPanel::createRefineEdgeWidget() {
     return w;
 }
 
+QWidget* ToolPropertiesPanel::createEyedropperWidget() {
+    QWidget* w = new QWidget(this);
+    QHBoxLayout* h = new QHBoxLayout(w);
+    h->setContentsMargins(0, 0, 0, 0);
+    h->setSpacing(12);
+
+    h->addWidget(new QLabel("Picked Color:", w));
+
+    m_lblColorSwatch = new QLabel(w);
+    m_lblColorSwatch->setFixedSize(24, 24);
+    m_lblColorSwatch->setStyleSheet("background-color: #FFFFFF; border: 1px solid #4A5568; border-radius: 4px;");
+    h->addWidget(m_lblColorSwatch);
+
+    m_lblColorHex = new QLabel("#FFFFFF", w);
+    m_lblColorHex->setStyleSheet("color: #00E6FF; font-family: Consolas; font-weight: bold; font-size: 13px;");
+    h->addWidget(m_lblColorHex);
+
+    QLabel* lblInfo = new QLabel("💡 Hover canvas to magnify pixels. Click to pick color.", w);
+    lblInfo->setStyleSheet("color: #A0AEC0; font-weight: normal; font-size: 11px;");
+    h->addWidget(lblInfo);
+
+    h->addStretch();
+    return w;
+}
+
 QWidget* ToolPropertiesPanel::createCropWidget() {
     QWidget* w = new QWidget(this);
     QHBoxLayout* h = new QHBoxLayout(w);
@@ -408,6 +435,16 @@ void ToolPropertiesPanel::setTool(Tools::BaseTool* tool, const QString& toolName
             m_spnRefineSize->setValue(rtool->getSize());
             m_spnRefineRadius->setValue(rtool->getRadius());
             m_chkDecontaminate->setChecked(rtool->isDecontaminate());
+        }
+    } else if (toolName == "Eyedropper") {
+        m_lblToolIcon->setText("💉");
+        m_lblToolName->setText("Eyedropper Color Picker");
+        m_stackedWidgets->setCurrentIndex(7);
+        auto etool = dynamic_cast<Tools::EyedropperTool*>(tool);
+        if (etool && m_lblColorSwatch && m_lblColorHex) {
+            QColor col = etool->getPickedColor();
+            m_lblColorSwatch->setStyleSheet(QString("background-color: %1; border: 1px solid #4A5568; border-radius: 4px;").arg(col.name()));
+            m_lblColorHex->setText(col.name().toUpper());
         }
     } else if (toolName == "MagicWand") {
         m_lblToolIcon->setText("🪄");

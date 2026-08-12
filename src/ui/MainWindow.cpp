@@ -6,6 +6,7 @@
 #include "tools/LassoTool.h"
 #include "tools/PolyLassoTool.h"
 #include "tools/RefineEdgeTool.h"
+#include "tools/EyedropperTool.h"
 #include "tools/CropTool.h"
 #include "workers/InferenceWorker.h"
 #include "utils/ImageUtils.h"
@@ -308,6 +309,22 @@ void MainWindow::initTools() {
     m_tools["Eraser"] = std::make_unique<Tools::MaskBrushTool>(m_canvas, "Eraser");
     m_tools["RefineEdge"] = std::make_unique<Tools::RefineEdgeTool>(m_canvas);
     m_tools["MagicWand"] = std::make_unique<Tools::MagicWandTool>(m_canvas);
+
+    auto eyeTool = std::make_unique<Tools::EyedropperTool>(m_canvas);
+    connect(eyeTool.get(), &Tools::EyedropperTool::colorPickedSignal, [this](const QColor& color) {
+        if (m_document) {
+            auto lyr = m_document->getActiveLayer();
+            if (lyr) {
+                if (lyr->layerType == "text") lyr->textColor = color;
+                else if (lyr->layerType == "shape") lyr->fillColor = color;
+                lyr->invalidateCache();
+                m_document->notifyChanged();
+            }
+        }
+        m_lblStatusColor->setText(QString("Picked: %1").arg(color.name().toUpper()));
+    });
+    m_tools["Eyedropper"] = std::move(eyeTool);
+
     m_tools["Lasso"] = std::make_unique<Tools::LassoTool>(m_canvas, "Remove");
     m_tools["PolyLasso"] = std::make_unique<Tools::PolyLassoTool>(m_canvas, "Keep");
     m_tools["Crop"] = std::make_unique<Tools::CropTool>(m_canvas);
@@ -335,6 +352,9 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
     } else if (key == Qt::Key_W) {
         m_toolBar->setActiveTool("MagicWand");
         selectToolByName("MagicWand");
+    } else if (key == Qt::Key_I) {
+        m_toolBar->setActiveTool("Eyedropper");
+        selectToolByName("Eyedropper");
     } else if (key == Qt::Key_L) {
         m_toolBar->setActiveTool("Lasso");
         selectToolByName("Lasso");

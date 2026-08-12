@@ -2,6 +2,12 @@
 #include "processing/ColorAdjust.h"
 #include "core/MaskProcessor.h"
 #include "utils/Logger.h"
+#include <QImage>
+#include <QPainter>
+#include <QPainterPath>
+#include <QFont>
+#include <QFontMetrics>
+#include <QTransform>
 #include <cmath>
 #include <algorithm>
 
@@ -169,44 +175,135 @@ cv::Mat Compositor::renderSingleLayer(const Core::Layer& lyr) {
 }
 
 cv::Mat Compositor::renderTextLayer(const Core::Layer& lyr) {
-    std::string text = lyr.textContent.isEmpty() ? "Text" : lyr.textContent.toStdString();
-    double fontScale = std::max(0.5, lyr.fontSize / 30.0);
-    int thickness = lyr.fontBold ? 2 : 1;
-    int fontFace = cv::FONT_HERSHEY_SIMPLEX;
+    QString text = lyr.textContent.isEmpty() ? "Sample Text" : lyr.textContent;
+    QFont font(lyr.fontFamily.isEmpty() ? "Arial" : lyr.fontFamily, lyr.fontSize);
+    font.setBold(lyr.fontBold);
+    font.setItalic(lyr.fontItalic);
 
-    int baseline = 0;
-    cv::Size textSize = cv::getTextSize(text, fontFace, fontScale, thickness, &baseline);
-    int w = std::max(10, textSize.width + 20);
-    int h = std::max(10, textSize.height + baseline + 20);
+    QFontMetrics fm(font);
+    QRect textRect = fm.boundingRect(text);
 
-    cv::Mat buf(h, w, CV_8UC4, cv::Scalar(0, 0, 0, 0));
-    cv::Scalar col(lyr.textColor.red(), lyr.textColor.green(), lyr.textColor.blue(), 255);
-    cv::putText(buf, text, cv::Point(10, h - 10), fontFace, fontScale, col, thickness, cv::LINE_AA);
-    return buf;
+    int margin = 30 + (lyr.textHasStroke ? lyr.textStrokeWidth * 2 : 0) + (lyr.textHasShadow ? 20 : 0);
+    int w = std::max(60, textRect.width() + margin * 2);
+    int h = std::max(40, textRect.height() + margin * 2);
+
+    QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter painter(&img);
+    painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
+
+    QRectF drawBox(margin, margin, textRect.width(), textRect.height());
+
+    if (lyr.textHasBg) {
+        QRectF bgRect = drawBox.adjusted(-10, -5, 10, 5);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(lyr.textBgColor);
+        painter.drawRoundedRect(bgRect, 8, 8);
+    }
+
+    if (lyr.textHasShadow) {
+        QPainterPath shadowPath;
+        shadowPath.addText(drawBox.left(), drawBox.top() + fm.ascent(), font, text);
+        QTransform trans;
+        trans.translate(lyr.textShadowOffsetX, lyr.textShadowOffsetY);
+        QPainterPath shiftedShadow = trans.map(shadowPath);
+        painter.fillPath(shiftedShadow, lyr.textShadowColor);
+    }
+
+    QPainterPath path;
+    path.addText(drawBox.left(), drawBox.top() + fm.ascent(), font, text);
+
+    if (lyr.textHasStroke && lyr.textStrokeWidth > 0) {
+        QPen strokePen(lyr.textStrokeColor, lyr.textStrokeWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        painter.strokePath(path, strokePen);
+    }
+
+    painter.fillPath(path, lyr.textColor);
+    painter.end();
+
+    QImage swp = img.convertToFormat(QImage::Format_RGBA8888);
+    cv::Mat res(h, w, CV_8UC4);
+    std::memcpy(res.data, swp.bits(), swp.sizeInBytes());
+    return res;
 }
 
 cv::Mat Compositor::renderShapeLayer(const Core::Layer& lyr) {
-    int w = 200, h = 200;
-    cv::Mat buf(h, w, CV_8UC4, cv::Scalar(0, 0, 0, 0));
+    int w = 240, h = 240;
+    QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
 
-    cv::Scalar fillColor(lyr.fillColor.red(), lyr.fillColor.green(), lyr.fillColor.blue(), lyr.fillColor.alpha());
-    cv::Scalar strokeColor(lyr.strokeColor.red(), lyr.strokeColor.green(), lyr.strokeColor.blue(), lyr.strokeColor.alpha());
+    QPainter painter(&img);
+    painter.setRenderHints(QPainter::Antialiasing);
+
     int sw = lyr.strokeWidth;
+    QPen pen(sw > 0 ? lyr.strokeColor : Qt::NoPen);
+    pen.setWidth(sw);
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter.setPen(pen);
+    painter.setBrush(lyr.fillColor);
+
+    QRectF rect(sw / 2.0 + 10, sw / 2.0 + 10, w - sw - 20, h - sw - 20);
 
     if (lyr.shapeType == "Rectangle") {
-        cv::rectangle(buf, cv::Point(sw, sw), cv::Point(w - sw, h - sw), fillColor, -1);
-        if (sw > 0) {
-            cv::rectangle(buf, cv::Point(0, 0), cv::Point(w, h), strokeColor, sw);
-        }
+        painter.drawRect(rect);
+    } else if (lyr.shapeType == "RoundedRectangle") {
+        painter.drawRoundedRect(rect, 20, 20);
     } else if (lyr.shapeType == "Circle") {
-        cv::Point center(w / 2, h / 2);
-        int radius = std::min(w, h) / 2 - sw;
-        cv::circle(buf, center, radius, fillColor, -1);
-        if (sw > 0) {
-            cv::circle(buf, center, radius + sw / 2, strokeColor, sw);
+        painter.drawEllipse(rect);
+    } else if (lyr.shapeType == "Arrow") {
+        QPainterPath path;
+        double cy = rect.center().y();
+        double headW = rect.width() * 0.4;
+        double tailH = rect.height() * 0.4;
+
+        path.moveTo(rect.left(), cy - tailH / 2);
+        path.lineTo(rect.right() - headW, cy - tailH / 2);
+        path.lineTo(rect.right() - headW, rect.top());
+        path.lineTo(rect.right(), cy);
+        path.lineTo(rect.right() - headW, rect.bottom());
+        path.lineTo(rect.right() - headW, cy + tailH / 2);
+        path.lineTo(rect.left(), cy + tailH / 2);
+        path.closeSubpath();
+        painter.drawPath(path);
+    } else if (lyr.shapeType == "Star") {
+        QPainterPath path;
+        QPointF center = rect.center();
+        double rOuter = std::min(rect.width(), rect.height()) / 2.0;
+        double rInner = rOuter * 0.4;
+        int points = 5;
+
+        for (int i = 0; i < points * 2; ++i) {
+            double r = (i % 2 == 0) ? rOuter : rInner;
+            double angle = i * M_PI / points - M_PI / 2.0;
+            double x = center.x() + r * std::cos(angle);
+            double y = center.y() + r * std::sin(angle);
+            if (i == 0) path.moveTo(x, y);
+            else path.lineTo(x, y);
         }
+        path.closeSubpath();
+        painter.drawPath(path);
+    } else if (lyr.shapeType == "SpeechBubble") {
+        QPainterPath path;
+        QRectF body = rect.adjusted(0, 0, 0, -rect.height() * 0.25);
+        path.addRoundedRect(body, 15, 15);
+
+        QPainterPath tail;
+        tail.moveTo(body.left() + body.width() * 0.25, body.bottom());
+        tail.lineTo(body.left() + body.width() * 0.15, rect.bottom());
+        tail.lineTo(body.left() + body.width() * 0.45, body.bottom());
+        tail.closeSubpath();
+
+        path = path.united(tail);
+        painter.drawPath(path);
     }
-    return buf;
+
+    painter.end();
+
+    QImage swp = img.convertToFormat(QImage::Format_RGBA8888);
+    cv::Mat res(h, w, CV_8UC4);
+    std::memcpy(res.data, swp.bits(), swp.sizeInBytes());
+    return res;
 }
 
 bool Compositor::transformLayerToCanvasRoi(

@@ -55,10 +55,12 @@ set(TOOLS_SOURCES
     src/tools/LassoTool.cpp
     src/tools/PolyLassoTool.cpp
     src/tools/RefineEdgeTool.cpp
+    src/tools/EyedropperTool.cpp
     src/tools/CropTool.cpp
     src/tools/SelectTool.cpp
     include/tools/PolyLassoTool.h
     include/tools/RefineEdgeTool.h
+    include/tools/EyedropperTool.h
 )
 
 set(WORKERS_SOURCES

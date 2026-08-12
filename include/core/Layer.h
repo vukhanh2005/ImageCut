@@ -81,8 +81,19 @@ public:
     bool fontItalic = false;
     QColor textColor = QColor(255, 255, 255);
 
+    // Rich Text Styling Properties
+    bool textHasStroke = false;
+    QColor textStrokeColor = QColor(0, 0, 0);
+    int textStrokeWidth = 3;
+    bool textHasShadow = false;
+    QColor textShadowColor = QColor(0, 0, 0, 160);
+    int textShadowOffsetX = 4;
+    int textShadowOffsetY = 4;
+    bool textHasBg = false;
+    QColor textBgColor = QColor(0, 0, 0, 180);
+
     // Shape Properties
-    QString shapeType = "Rectangle"; // "Rectangle", "Circle"
+    QString shapeType = "Rectangle"; // "Rectangle", "RoundedRectangle", "Circle", "Arrow", "Star", "SpeechBubble"
     QColor fillColor = QColor(0, 120, 215, 255);
     QColor strokeColor = QColor(255, 255, 255, 255);
     int strokeWidth = 2;
