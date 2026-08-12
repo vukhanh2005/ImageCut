@@ -30,7 +30,8 @@ ToolBarPanel::ToolBarPanel(QWidget* parent)
         { "Brush", "Restore Brush Tool (B)", "🖌️" },
         { "Eraser", "Eraser Tool (E)", "🧹" },
         { "MagicWand", "Magic Wand Color Select (W)", "🪄" },
-        { "Lasso", "Lasso Selection Tool (L)", "✂️" },
+        { "Lasso", "Freehand Lasso Tool (L)", "✂️" },
+        { "PolyLasso", "Point-to-Point Polygon Keep/Remove Tool (P)", "🪡" },
         { "Crop", "Crop Canvas Tool (C)", "🖼️" }
     };
 

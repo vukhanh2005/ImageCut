@@ -2,6 +2,7 @@
 #include "tools/BrushTool.h"
 #include "tools/MagicWandTool.h"
 #include "tools/LassoTool.h"
+#include "tools/PolyLassoTool.h"
 #include "tools/CropTool.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -50,6 +51,7 @@ void ToolPropertiesPanel::initUi() {
     m_stackedWidgets->addWidget(createMagicWandWidget()); // 2: MagicWand
     m_stackedWidgets->addWidget(createLassoWidget());     // 3: Lasso
     m_stackedWidgets->addWidget(createCropWidget());      // 4: Crop
+    m_stackedWidgets->addWidget(createPolyLassoWidget()); // 5: PolyLasso
 
     layout->addWidget(m_stackedWidgets, 1);
 }
@@ -229,6 +231,31 @@ QWidget* ToolPropertiesPanel::createLassoWidget() {
     return w;
 }
 
+QWidget* ToolPropertiesPanel::createPolyLassoWidget() {
+    QWidget* w = new QWidget(this);
+    QHBoxLayout* h = new QHBoxLayout(w);
+    h->setContentsMargins(0, 0, 0, 0);
+    h->setSpacing(12);
+
+    h->addWidget(new QLabel("Mode:", w));
+    m_cmbPolyLassoMode = new QComboBox(w);
+    m_cmbPolyLassoMode->addItems({ "Keep (Giữ lại vùng chọn)", "Remove (Xóa nền vùng chọn)" });
+    connect(m_cmbPolyLassoMode, QOverload<int>::of(&QComboBox::currentIndexChanged), [this](int idx) {
+        if (m_currentTool) {
+            auto pltool = dynamic_cast<Tools::PolyLassoTool*>(m_currentTool);
+            if (pltool) pltool->setMode(idx == 0 ? "Keep" : "Remove");
+        }
+    });
+    h->addWidget(m_cmbPolyLassoMode);
+
+    QLabel* lblInfo = new QLabel("💡 Click points to outline polygon. Click start point (🟢) or press Enter to finish.", w);
+    lblInfo->setStyleSheet("color: #00E6FF; font-weight: normal; font-size: 11px;");
+    h->addWidget(lblInfo);
+
+    h->addStretch();
+    return w;
+}
+
 QWidget* ToolPropertiesPanel::createCropWidget() {
     QWidget* w = new QWidget(this);
     QHBoxLayout* h = new QHBoxLayout(w);
@@ -293,6 +320,14 @@ void ToolPropertiesPanel::setTool(Tools::BaseTool* tool, const QString& toolName
         m_lblToolIcon->setText("🪢");
         m_lblToolName->setText("Lasso Tool");
         m_stackedWidgets->setCurrentIndex(3);
+    } else if (toolName == "PolyLasso") {
+        m_lblToolIcon->setText("🪡");
+        m_lblToolName->setText("Point-to-Point Polygonal Lasso");
+        m_stackedWidgets->setCurrentIndex(5);
+        auto pltool = dynamic_cast<Tools::PolyLassoTool*>(tool);
+        if (pltool) {
+            m_cmbPolyLassoMode->setCurrentIndex(pltool->getMode() == "Keep" ? 0 : 1);
+        }
     } else if (toolName == "Crop") {
         m_lblToolIcon->setText("✂️");
         m_lblToolName->setText("Crop Tool");

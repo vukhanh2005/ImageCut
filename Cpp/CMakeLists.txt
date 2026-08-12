@@ -53,8 +53,10 @@ set(TOOLS_SOURCES
     src/tools/BrushTool.cpp
     src/tools/MagicWandTool.cpp
     src/tools/LassoTool.cpp
+    src/tools/PolyLassoTool.cpp
     src/tools/CropTool.cpp
     src/tools/SelectTool.cpp
+    include/tools/PolyLassoTool.h
 )
 
 set(WORKERS_SOURCES

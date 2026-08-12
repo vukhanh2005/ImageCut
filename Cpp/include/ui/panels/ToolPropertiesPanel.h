@@ -32,6 +32,7 @@ private:
     QWidget* createBrushWidget();
     QWidget* createMagicWandWidget();
     QWidget* createLassoWidget();
+    QWidget* createPolyLassoWidget();
     QWidget* createCropWidget();
     QWidget* createSelectWidget();
 
@@ -53,6 +54,7 @@ private:
 
     // Lasso controls
     QComboBox* m_cmbLassoMode = nullptr;
+    QComboBox* m_cmbPolyLassoMode = nullptr;
 
     // Crop controls
     QComboBox* m_cmbCropPreset = nullptr;
