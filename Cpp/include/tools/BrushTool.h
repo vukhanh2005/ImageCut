@@ -16,6 +16,16 @@ public:
     ~MaskBrushTool() override = default;
 
     void setMode(const QString& mode);
+    QString getMode() const { return m_mode; }
+
+    void setSize(int sz) { m_size = sz; }
+    int getSize() const { return m_size; }
+
+    void setHardness(double h) { m_hardness = h; }
+    double getHardness() const { return m_hardness; }
+
+    void setOpacity(double o) { m_opacity = o; }
+    double getOpacity() const { return m_opacity; }
 
     void mousePress(const QPointF& imgPos, QMouseEvent* event) override;
     void mouseMove(const QPointF& imgPos, QMouseEvent* event) override;

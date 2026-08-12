@@ -75,6 +75,7 @@ set(UI_SOURCES
     src/ui/panels/MaskPanel.cpp
     src/ui/panels/ImagePanel.cpp
     src/ui/panels/BackgroundPanel.cpp
+    src/ui/panels/ToolPropertiesPanel.cpp
     src/ui/dialogs/ExportDialog.cpp
     src/ui/dialogs/BatchDialog.cpp
     src/ui/dialogs/SettingsDialog.cpp
@@ -88,6 +89,7 @@ set(UI_SOURCES
     include/ui/panels/MaskPanel.h
     include/ui/panels/ImagePanel.h
     include/ui/panels/BackgroundPanel.h
+    include/ui/panels/ToolPropertiesPanel.h
     include/ui/dialogs/ExportDialog.h
     include/ui/dialogs/BatchDialog.h
     include/ui/dialogs/SettingsDialog.h

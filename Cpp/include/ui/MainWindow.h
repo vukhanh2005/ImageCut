@@ -18,6 +18,7 @@
 #include "ui/panels/MaskPanel.h"
 #include "ui/panels/ImagePanel.h"
 #include "ui/panels/BackgroundPanel.h"
+#include "ui/panels/ToolPropertiesPanel.h"
 
 namespace ImageCut {
 namespace UI {
@@ -64,6 +65,7 @@ private:
     CanvasView* m_canvas = nullptr;
     TopBarPanel* m_topBar = nullptr;
     ToolBarPanel* m_toolBar = nullptr;
+    ToolPropertiesPanel* m_panelToolProperties = nullptr;
     QTabWidget* m_rightTabs = nullptr;
 
     LayerManagerPanel* m_panelLayers = nullptr;

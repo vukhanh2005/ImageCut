@@ -15,6 +15,12 @@ public:
     void mouseMove(const QPointF& imgPos, QMouseEvent* event) override;
     void mouseRelease(const QPointF& imgPos, QMouseEvent* event) override;
 
+    void setTolerance(int t) { m_tolerance = t; }
+    int getTolerance() const { return m_tolerance; }
+
+    void setContiguous(bool c) { m_contiguous = c; }
+    bool isContiguous() const { return m_contiguous; }
+
     void drawOverlay(QPainter* painter) override;
 
 private:

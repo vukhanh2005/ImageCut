@@ -194,6 +194,9 @@ void MainWindow::initUiLayout() {
     });
     mainVbox->addWidget(m_topBar);
 
+    m_panelToolProperties = new ToolPropertiesPanel(this);
+    mainVbox->addWidget(m_panelToolProperties);
+
     QHBoxLayout* contentHbox = new QHBoxLayout();
     contentHbox->setContentsMargins(0, 0, 0, 0);
     contentHbox->setSpacing(0);
@@ -349,7 +352,11 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
 
 void MainWindow::selectToolByName(const QString& toolName) {
     if (m_tools.find(toolName) != m_tools.end()) {
-        m_canvas->setActiveTool(m_tools[toolName].get(), toolName);
+        auto tool = m_tools[toolName].get();
+        m_canvas->setActiveTool(tool, toolName);
+        if (m_panelToolProperties) {
+            m_panelToolProperties->setTool(tool, toolName);
+        }
         m_lblStatusMsg->setText("Active Tool: " + toolName);
     }
 }

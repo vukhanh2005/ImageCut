@@ -18,6 +18,9 @@ public:
     void mouseMove(const QPointF& imgPos, QMouseEvent* event) override;
     void mouseRelease(const QPointF& imgPos, QMouseEvent* event) override;
 
+    void setMode(const QString& mode) { m_mode = mode; }
+    QString getMode() const { return m_mode; }
+
     void drawOverlay(QPainter* painter) override;
 
 private:
