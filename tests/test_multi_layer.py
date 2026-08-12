@@ -151,3 +151,23 @@ def test_multi_layer_project_roundtrip():
         assert lA.rotation == 90.0
         assert lA.opacity == 0.8
         assert lA.blend_mode == "Multiply"
+
+def test_map_canvas_pos_to_layer_pos():
+    from PySide6.QtCore import QPointF
+    doc = ImageDocument(canvas_width=1920, canvas_height=1080)
+    img = np.full((600, 800, 3), 200, dtype=np.uint8)
+    lyr = doc.add_image_layer(img, name="Test Image 1")
+
+    lyr.offset_x = 100.0
+    lyr.offset_y = 50.0
+
+    # Top-left of layer on canvas (100, 50) -> should map to (0, 0)
+    lx, ly = doc.map_canvas_pos_to_layer_pos(QPointF(100.0, 50.0), lyr)
+    assert abs(lx - 0.0) < 1e-3
+    assert abs(ly - 0.0) < 1e-3
+
+    # Bottom-right of layer on canvas (900, 650) -> should map to (800, 600)
+    lx, ly = doc.map_canvas_pos_to_layer_pos(QPointF(900.0, 650.0), lyr)
+    assert abs(lx - 800.0) < 1e-3
+    assert abs(ly - 600.0) < 1e-3
+

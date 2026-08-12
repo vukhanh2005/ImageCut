@@ -1,9 +1,12 @@
 from typing import List, Callable, Tuple, Optional
+import math
 import numpy as np
 import cv2
+from PySide6.QtCore import QPointF
 from app.core.history import UndoStack, MaskEditCommand, DocumentActionCommand
 from app.core.layer import Layer
 from app.utils.logger import logger
+
 
 class ImageDocument:
     """
@@ -447,15 +450,72 @@ class ImageDocument:
                 lyr.offset_y += dy
         self.notify_changed()
 
+    # Coordinate Mapping Helper
+    def map_canvas_pos_to_layer_pos(self, canvas_pos: QPointF, layer: Optional[Layer] = None) -> Tuple[float, float]:
+        """
+        Maps a canvas coordinate (screen position in canvas space) to local layer image/mask coordinates (x, y).
+        Accounts for layer offset, scale, rotation, and horizontal/vertical flips.
+        """
+        lyr = layer or self.active_layer
+        if not lyr or lyr.image is None:
+            return (canvas_pos.x(), canvas_pos.y())
+
+        canvas_x = canvas_pos.x()
+        canvas_y = canvas_pos.y()
+
+        layer_w = float(lyr.width())
+        layer_h = float(lyr.height())
+
+        scale_x = lyr.scale_x if lyr.scale_x != 0.0 else 1.0
+        scale_y = lyr.scale_y if lyr.scale_y != 0.0 else 1.0
+
+        scaled_w = layer_w * scale_x
+        scaled_h = layer_h * scale_y
+
+        dst_cx = lyr.offset_x + scaled_w / 2.0
+        dst_cy = lyr.offset_y + scaled_h / 2.0
+
+        src_cx = layer_w / 2.0
+        src_cy = layer_h / 2.0
+
+        dx = canvas_x - dst_cx
+        dy = canvas_y - dst_cy
+
+        # Un-rotate around center
+        rad = -math.radians(lyr.rotation)
+        cos_a = math.cos(rad)
+        sin_a = math.sin(rad)
+
+        rx = dx * cos_a - dy * sin_a
+        ry = dx * sin_a + dy * cos_a
+
+        # Un-scale
+        unscaled_x = rx / scale_x
+        unscaled_y = ry / scale_y
+
+        # Translate to layer origin
+        layer_x = unscaled_x + src_cx
+        layer_y = unscaled_y + src_cy
+
+        # Un-flip
+        if lyr.flip_h:
+            layer_x = layer_w - layer_x
+        if lyr.flip_v:
+            layer_y = layer_h - layer_y
+
+        return (layer_x, layer_y)
+
     # Mask Updates & History
     def update_mask(self, new_mask: np.ndarray, layer_id: Optional[str] = None, description: str = "Edit Mask"):
         target_layer = self.get_layer_by_id(layer_id) if layer_id else self.active_layer
         if target_layer is None:
             return
 
+        target_layer.invalidate_cache()
         old_mask = target_layer.mask.copy() if target_layer.mask is not None else None
         cmd = MaskEditCommand(self, old_mask=old_mask, new_mask=new_mask, layer_id=target_layer.id, description=description)
         self.undo_stack.push(cmd)
+
 
     def add_change_listener(self, callback: Callable):
         self._change_listeners.append(callback)

@@ -22,18 +22,21 @@ class MagicWandTool(BaseTool):
             return
 
         doc = self.canvas.document
-        if doc.original_image is None:
+        lyr = doc.active_layer
+        if not lyr or lyr.image is None:
             return
 
-        img = doc.original_image
+        img = lyr.image
         h, w = img.shape[:2]
-        seed_x, seed_y = int(img_pos.x()), int(img_pos.y())
+
+        layer_pos = doc.map_canvas_pos_to_layer_pos(img_pos, lyr)
+        seed_x, seed_y = int(round(layer_pos[0])), int(round(layer_pos[1]))
 
         if seed_x < 0 or seed_x >= w or seed_y < 0 or seed_y >= h:
             return
 
-        # Prepare new mask
-        mask = doc.mask.copy() if doc.mask is not None else np.full((h, w), 255, dtype=np.uint8)
+        # Prepare new mask for active layer
+        mask = lyr.mask.copy() if lyr.mask is not None else np.full((h, w), 255, dtype=np.uint8)
 
         if self.contiguous:
             # OpenCV Flood Fill
@@ -50,12 +53,13 @@ class MagicWandTool(BaseTool):
             dist = np.linalg.norm(img.astype(np.float32) - seed_color, axis=2)
             selected_region = dist <= self.tolerance
 
-        # Erase selected region from mask
+        # Erase selected region from layer mask
         mask[selected_region] = 0
 
         # Push command
-        doc.update_mask(mask, description="Magic Wand Select")
+        doc.update_mask(mask, layer_id=lyr.id, description="Magic Wand Select")
         self.canvas.update()
+
 
     def mouse_move(self, img_pos: QPointF, event: QMouseEvent):
         pass

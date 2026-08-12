@@ -32,12 +32,15 @@ class LassoTool(BaseTool):
         if event.button() == Qt.MouseButton.LeftButton and self.is_selecting:
             self.is_selecting = False
             doc = self.canvas.document
-            if doc and doc.original_image is not None and len(self.points) > 2:
-                h, w = doc.height(), doc.width()
-                mask = doc.mask.copy() if doc.mask is not None else np.full((h, w), 255, dtype=np.uint8)
+            lyr = doc.active_layer if doc else None
+            if doc and lyr and lyr.image is not None and len(self.points) > 2:
+                h, w = lyr.height(), lyr.width()
+                mask = lyr.mask.copy() if lyr.mask is not None else np.full((h, w), 255, dtype=np.uint8)
 
-                # Convert QPointF list to opencv contour format
-                pts_np = np.array([[int(p.x()), int(p.y())] for p in self.points], dtype=np.int32)
+                # Convert canvas points to local layer mask coordinates
+                layer_pts = [doc.map_canvas_pos_to_layer_pos(p, lyr) for p in self.points]
+                pts_np = np.array([[int(round(lx)), int(round(ly))] for lx, ly in layer_pts], dtype=np.int32)
+
                 poly_mask = np.zeros((h, w), dtype=np.uint8)
                 cv2.fillPoly(poly_mask, [pts_np], 255)
 
@@ -46,10 +49,11 @@ class LassoTool(BaseTool):
                 else:
                     mask[poly_mask > 0] = 255
 
-                doc.update_mask(mask, description="Lasso Select")
+                doc.update_mask(mask, layer_id=lyr.id, description="Lasso Select")
 
             self.points.clear()
             self.canvas.update()
+
 
     def draw_overlay(self, painter: QPainter):
         """Draws marching ant polyline during lasso selection."""

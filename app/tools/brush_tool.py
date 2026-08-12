@@ -27,54 +27,67 @@ class MaskBrushTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton or not self.canvas.document:
             return
 
-        self.is_drawing = True
-        self.last_pos = (int(img_pos.x()), int(img_pos.y()))
         doc = self.canvas.document
+        lyr = doc.active_layer
+        if not lyr or lyr.image is None:
+            return
 
-        if doc.mask is None:
-            doc.mask = np.full((doc.height(), doc.width()), 255, dtype=np.uint8)
+        self.is_drawing = True
+        layer_pos = doc.map_canvas_pos_to_layer_pos(img_pos, lyr)
+        self.last_pos = (int(round(layer_pos[0])), int(round(layer_pos[1])))
 
-        self.current_mask = doc.mask.copy()
-        self._paint_circle(self.last_pos)
+        h, w = lyr.height(), lyr.width()
+        if lyr.mask is None:
+            lyr.mask = np.full((h, w), 255, dtype=np.uint8)
+
+        self.current_mask = lyr.mask.copy()
+        self._paint_circle(self.last_pos, lyr)
         self.canvas.update()
 
     def mouse_move(self, img_pos: QPointF, event: QMouseEvent):
-        curr_pos = (int(img_pos.x()), int(img_pos.y()))
-        if self.is_drawing and self.current_mask is not None:
+        doc = self.canvas.document
+        lyr = doc.active_layer if doc else None
+        if self.is_drawing and self.current_mask is not None and lyr:
+            layer_pos = doc.map_canvas_pos_to_layer_pos(img_pos, lyr)
+            curr_pos = (int(round(layer_pos[0])), int(round(layer_pos[1])))
             if self.last_pos is not None:
-                self._paint_line(self.last_pos, curr_pos)
+                self._paint_line(self.last_pos, curr_pos, lyr)
             self.last_pos = curr_pos
         self.canvas.update()
 
     def mouse_release(self, img_pos: QPointF, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton and self.is_drawing:
             self.is_drawing = False
-            if self.canvas.document and self.current_mask is not None:
+            doc = self.canvas.document
+            lyr = doc.active_layer if doc else None
+            if doc and lyr and self.current_mask is not None:
                 description = "Restore Brush" if self.mode == "Restore" else "Erase Brush"
-                self.canvas.document.update_mask(self.current_mask, description=description)
+                doc.update_mask(self.current_mask, layer_id=lyr.id, description=description)
             self.current_mask = None
             self.last_pos = None
             self.canvas.update()
 
-    def _paint_circle(self, center: tuple):
+    def _paint_circle(self, center: tuple, lyr):
         if self.current_mask is None:
             return
 
         cx, cy = center
-        r = max(1, self.size // 2)
+        scale = max(0.1, max(lyr.scale_x, lyr.scale_y))
+        r = max(1, int(round((self.size / 2.0) / scale)))
         val = 255 if self.mode == "Restore" else 0
-        h, w = self.current_mask.shape[:2]
 
-        # Draw circle on mask
         cv2.circle(self.current_mask, (cx, cy), r, (val,), -1)
 
-    def _paint_line(self, p1: tuple, p2: tuple):
+    def _paint_line(self, p1: tuple, p2: tuple, lyr):
         if self.current_mask is None:
             return
 
-        r = max(1, self.size // 2)
+        scale = max(0.1, max(lyr.scale_x, lyr.scale_y))
+        r = max(1, int(round((self.size / 2.0) / scale)))
         val = 255 if self.mode == "Restore" else 0
+
         cv2.line(self.current_mask, p1, p2, (val,), thickness=r * 2)
+
 
     def draw_overlay(self, painter: QPainter):
         """Draws brush radius preview ring around current mouse position."""
