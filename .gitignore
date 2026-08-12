@@ -20,3 +20,14 @@ env/
 logs/
 .vscode/
 .idea/
+
+# C++ Build Output & Dependencies
+Cpp/build/
+Cpp/third_party/
+Cpp/lib/
+*.exe
+*.dll
+*.lib
+*.obj
+*.log
+aqtinstall.log

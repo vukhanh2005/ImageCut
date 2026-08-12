@@ -1,0 +1,61 @@
+# Migration Status — ImageCut C++ Project
+
+Track the implementation and verification status of each module during the migration process.
+
+---
+
+- [x] **Phase 0: Project Audit & Migration Planning**
+  - [x] `project-audit.md`
+  - [x] `current-features.md`
+  - [x] `dependencies.md`
+  - [x] `migration-plan.md`
+  - [x] `migration-status.md`
+- [x] **Phase 1: Project Setup & CMake Infrastructure**
+  - [x] `Cpp/CMakeLists.txt`
+  - [x] `Cpp/README.md`
+  - [x] Qt6, OpenCV, ONNX Runtime, and miniz third-party integration
+- [x] **Phase 2: Core Document & Layer Data Model**
+  - [x] `Layer.h` / `Layer.cpp`
+  - [x] `ImageDocument.h` / `ImageDocument.cpp`
+  - [x] `MaskProcessor.h` / `MaskProcessor.cpp`
+- [x] **Phase 3: Image Processing & Compositing Engine**
+  - [x] `ColorAdjust.h` / `ColorAdjust.cpp`
+  - [x] `Compositor.h` / `Compositor.cpp` (ROI patch warp & 8 blend modes)
+  - [x] `AlignUtils.h` / `AlignUtils.cpp`
+  - [x] `CropTransform.h` / `CropTransform.cpp`
+- [x] **Phase 4: Undo / Redo Command History**
+  - [x] `History.h` / `History.cpp` (`UndoStack`, `MaskEditCommand`, `DocumentActionCommand`)
+- [x] **Phase 5: Interactive GUI Canvas View**
+  - [x] `CanvasView.h` / `CanvasView.cpp` (Viewport zoom/pan, 8-handle bounding box, cyan frame & corner overlays)
+- [x] **Phase 6: GUI Control Panels & Tabs**
+  - [x] `LayerPanel.h` / `LayerPanel.cpp`
+  - [x] `TransformPanel.h` / `TransformPanel.cpp`
+  - [x] `MaskPanel.h` / `MaskPanel.cpp`
+  - [x] `ImagePanel.h` / `ImagePanel.cpp`
+  - [x] `BackgroundPanel.h` / `BackgroundPanel.cpp`
+- [x] **Phase 7: Interactive Tool System**
+  - [x] `BaseTool.h`
+  - [x] `BrushTool.h` / `BrushTool.cpp`
+  - [x] `MagicWandTool.h` / `MagicWandTool.cpp`
+  - [x] `LassoTool.h` / `LassoTool.cpp`
+  - [x] `CropTool.h` / `CropTool.cpp`
+  - [x] `SelectTool.h` / `SelectTool.cpp`
+- [x] **Phase 8: AI Inference Engine & Model Manager**
+  - [x] `ONNXEngine.h` / `ONNXEngine.cpp`
+  - [x] `ModelManager.h` / `ModelManager.cpp`
+  - [x] `ColorKeyEngine.h` / `ColorKeyEngine.cpp`
+- [x] **Phase 9: Project File Serialization (`.bgrem`)**
+  - [x] `ProjectManager.h` / `ProjectManager.cpp` (`QJsonDocument` + `miniz` ZIP serialization)
+- [x] **Phase 10: Export & Batch Asynchronous Workers**
+  - [x] `ExportWorker.h` / `ExportWorker.cpp`
+  - [x] `BatchWorker.h` / `BatchWorker.cpp`
+  - [x] `InferenceWorker.h` / `InferenceWorker.cpp`
+- [x] **Phase 11: Main Window & Final Assembly**
+  - [x] `MainWindow.h` / `MainWindow.cpp`
+  - [x] `TopBarPanel.h` / `TopBarPanel.cpp`
+  - [x] `ToolBarPanel.h` / `ToolBarPanel.cpp`
+  - [x] `Style.h` / `Style.cpp` (Dark QSS Theme)
+  - [x] `main.cpp`
+- [x] **Phase 12: Testing & Packaging**
+  - [x] `Cpp/CMakeLists.txt` Release build configuration
+
