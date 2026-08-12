@@ -4,6 +4,7 @@
 #include "tools/BaseTool.h"
 #include <QRectF>
 #include <QString>
+#include <vector>
 
 namespace ImageCut {
 namespace Tools {
@@ -23,10 +24,23 @@ public:
     void drawOverlay(QPainter* painter) override;
 
 private:
+    enum HandleType {
+        None,
+        Body,
+        TopLeft, TopCenter, TopRight,
+        MiddleLeft, MiddleRight,
+        BottomLeft, BottomCenter, BottomRight
+    };
+
+    HandleType hitTest(const QPointF& pos) const;
+    std::vector<QRectF> getHandleRects() const;
+
     QRectF m_cropRect;
-    QString m_aspectRatio = "Free"; // "Free", "1:1", "4:3", "3:4", "16:9", "9:16"
+    QString m_aspectRatio = "Free"; // "Free", "1:1 Square", "16:9 Landscape", "9:16 Portrait / Story", "4:3 Standard"
     bool m_isDragging = false;
+    HandleType m_activeHandle = None;
     QPointF m_startPos;
+    QRectF m_initialCropRect;
 };
 
 } // namespace Tools
