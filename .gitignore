@@ -1,33 +1,46 @@
-# Python / PyInstaller ignore
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Build & Dist
+# Build output
 build/
-dist/
-*.egg-info/
-
-# Environments
-.venv/
-venv/
-ENV/
-env/
-
-# Cache & Logs
-.pytest_cache/
-logs/
-.vscode/
-.idea/
-
-# C++ Build Output & Dependencies
-Cpp/build/
-Cpp/third_party/
-Cpp/lib/
+*.obj
+*.o
 *.exe
 *.dll
 *.lib
-*.obj
-*.log
+*.exp
+*.pdb
+*.ilk
+
+# IDE / Editor
+.vs/
+.vscode/
+*.user
+CMakeSettings.json
+
+# Installer output
+installer/output/
+
+# Qt MOC generated
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Logs
+logs/
+
+# Third-party SDKs & heavy include headers (too large for git)
+third_party/
+!third_party/miniz/
+lib/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Python leftovers (legacy)
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.spec
+.pytest_cache/
 aqtinstall.log
