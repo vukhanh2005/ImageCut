@@ -409,33 +409,38 @@ void CanvasView::mouseMoveEvent(QMouseEvent* event) {
             double startAngle = std::atan2(m_dragStartCanvasPos.y() - cy, m_dragStartCanvasPos.x() - cx);
             double deltaDeg = (angle - startAngle) * 180.0 / M_PI;
             lyr->rotation = std::fmod(initRot + deltaDeg, 360.0);
-        } else if (m_dragMode == "br" || m_dragMode == "tl" || m_dragMode == "tr" || m_dragMode == "bl") {
+        } else if (m_dragMode == "br" || m_dragMode == "tl" || m_dragMode == "tr" || m_dragMode == "bl" ||
+                   m_dragMode == "tc" || m_dragMode == "bc" || m_dragMode == "ml" || m_dragMode == "mr") {
             auto [initX, initY, initSx, initSy, rot] = m_dragStartLayerStates[lyr->id];
             double origW = lyr->width();
             double origH = lyr->height();
 
-            if (m_dragMode.contains("r")) {
+            // Horizontal scaling (Right / Left / Middle-Right / Middle-Left)
+            if (m_dragMode == "br" || m_dragMode == "tr" || m_dragMode == "mr") {
                 double newW = std::max(10.0, (origW * initSx) + dx);
                 lyr->scaleX = newW / origW;
-            } else if (m_dragMode.contains("l")) {
+            } else if (m_dragMode == "tl" || m_dragMode == "bl" || m_dragMode == "ml") {
                 double newW = std::max(10.0, (origW * initSx) - dx);
                 lyr->scaleX = newW / origW;
                 lyr->offsetX = initX + dx;
             }
 
-            if (m_dragMode.contains("b")) {
+            // Vertical scaling (Bottom / Top / Bottom-Center / Top-Center)
+            if (m_dragMode == "br" || m_dragMode == "bl" || m_dragMode == "bc") {
                 double newH = std::max(10.0, (origH * initSy) + dy);
                 lyr->scaleY = newH / origH;
-            } else if (m_dragMode.contains("t")) {
+            } else if (m_dragMode == "tl" || m_dragMode == "tr" || m_dragMode == "tc") {
                 double newH = std::max(10.0, (origH * initSy) - dy);
                 lyr->scaleY = newH / origH;
                 lyr->offsetY = initY + dy;
             }
 
             if (lyr->lockAspect) {
-                double avgScale = (lyr->scaleX + lyr->scaleY) / 2.0;
-                lyr->scaleX = avgScale;
-                lyr->scaleY = avgScale;
+                if (m_dragMode == "br" || m_dragMode == "tl" || m_dragMode == "tr" || m_dragMode == "bl") {
+                    double avgScale = (lyr->scaleX + lyr->scaleY) / 2.0;
+                    lyr->scaleX = avgScale;
+                    lyr->scaleY = avgScale;
+                }
             }
         }
 
