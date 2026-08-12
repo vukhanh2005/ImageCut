@@ -411,29 +411,120 @@ void CanvasView::mouseMoveEvent(QMouseEvent* event) {
             lyr->rotation = std::fmod(initRot + deltaDeg, 360.0);
         } else if (m_dragMode == "br" || m_dragMode == "tl" || m_dragMode == "tr" || m_dragMode == "bl" ||
                    m_dragMode == "tc" || m_dragMode == "bc" || m_dragMode == "ml" || m_dragMode == "mr") {
+            m_snapLinesX.clear();
+            m_snapLinesY.clear();
+
             auto [initX, initY, initSx, initSy, rot] = m_dragStartLayerStates[lyr->id];
             double origW = lyr->width();
             double origH = lyr->height();
 
-            // Horizontal scaling (Right / Left / Middle-Right / Middle-Left)
+            double newW = origW * initSx;
+            double newH = origH * initSy;
+            double newX = initX;
+            double newY = initY;
+
+            // 1. Calculate raw new dimensions from drag
             if (m_dragMode == "br" || m_dragMode == "tr" || m_dragMode == "mr") {
-                double newW = std::max(10.0, (origW * initSx) + dx);
-                lyr->scaleX = newW / origW;
+                newW = std::max(10.0, (origW * initSx) + dx);
             } else if (m_dragMode == "tl" || m_dragMode == "bl" || m_dragMode == "ml") {
-                double newW = std::max(10.0, (origW * initSx) - dx);
-                lyr->scaleX = newW / origW;
-                lyr->offsetX = initX + dx;
+                newW = std::max(10.0, (origW * initSx) - dx);
+                newX = initX + dx;
             }
 
-            // Vertical scaling (Bottom / Top / Bottom-Center / Top-Center)
             if (m_dragMode == "br" || m_dragMode == "bl" || m_dragMode == "bc") {
-                double newH = std::max(10.0, (origH * initSy) + dy);
-                lyr->scaleY = newH / origH;
+                newH = std::max(10.0, (origH * initSy) + dy);
             } else if (m_dragMode == "tl" || m_dragMode == "tr" || m_dragMode == "tc") {
-                double newH = std::max(10.0, (origH * initSy) - dy);
-                lyr->scaleY = newH / origH;
-                lyr->offsetY = initY + dy;
+                newH = std::max(10.0, (origH * initSy) - dy);
+                newY = initY + dy;
             }
+
+            // 2. Apply Magnet Snapping if enabled
+            if (m_document->snapEnabled) {
+                std::vector<double> targetsX = { 0.0, m_document->canvasWidth / 2.0, static_cast<double>(m_document->canvasWidth) };
+                std::vector<double> targetsY = { 0.0, m_document->canvasHeight / 2.0, static_cast<double>(m_document->canvasHeight) };
+
+                for (const auto& otherLyr : m_document->layers) {
+                    if (!otherLyr || otherLyr->id == lyr->id || !otherLyr->visible) continue;
+                    double ow = otherLyr->width() * otherLyr->scaleX;
+                    double oh = otherLyr->height() * otherLyr->scaleY;
+                    targetsX.push_back(otherLyr->offsetX);
+                    targetsX.push_back(otherLyr->offsetX + ow / 2.0);
+                    targetsX.push_back(otherLyr->offsetX + ow);
+
+                    targetsY.push_back(otherLyr->offsetY);
+                    targetsY.push_back(otherLyr->offsetY + oh / 2.0);
+                    targetsY.push_back(otherLyr->offsetY + oh);
+                }
+
+                double snapThreshold = std::max(6.0, 10.0 / m_zoomFactor);
+
+                // Snap X for right side handle (br, tr, mr)
+                if (m_dragMode == "br" || m_dragMode == "tr" || m_dragMode == "mr") {
+                    double rightEdge = newX + newW;
+                    double minDiff = snapThreshold;
+                    double bestTarget = -1.0;
+                    for (double tx : targetsX) {
+                        double diff = std::abs(rightEdge - tx);
+                        if (diff < minDiff) { minDiff = diff; bestTarget = tx; }
+                    }
+                    if (bestTarget >= 0.0) {
+                        newW = std::max(10.0, bestTarget - newX);
+                        m_snapLinesX.push_back(bestTarget);
+                    }
+                }
+                // Snap X for left side handle (tl, bl, ml)
+                else if (m_dragMode == "tl" || m_dragMode == "bl" || m_dragMode == "ml") {
+                    double leftEdge = newX;
+                    double minDiff = snapThreshold;
+                    double bestTarget = -1.0;
+                    for (double tx : targetsX) {
+                        double diff = std::abs(leftEdge - tx);
+                        if (diff < minDiff) { minDiff = diff; bestTarget = tx; }
+                    }
+                    if (bestTarget >= 0.0) {
+                        double rightEdge = initX + (origW * initSx);
+                        newX = bestTarget;
+                        newW = std::max(10.0, rightEdge - newX);
+                        m_snapLinesX.push_back(bestTarget);
+                    }
+                }
+
+                // Snap Y for bottom side handle (br, bl, bc)
+                if (m_dragMode == "br" || m_dragMode == "bl" || m_dragMode == "bc") {
+                    double bottomEdge = newY + newH;
+                    double minDiff = snapThreshold;
+                    double bestTarget = -1.0;
+                    for (double ty : targetsY) {
+                        double diff = std::abs(bottomEdge - ty);
+                        if (diff < minDiff) { minDiff = diff; bestTarget = ty; }
+                    }
+                    if (bestTarget >= 0.0) {
+                        newH = std::max(10.0, bestTarget - newY);
+                        m_snapLinesY.push_back(bestTarget);
+                    }
+                }
+                // Snap Y for top side handle (tl, tr, tc)
+                else if (m_dragMode == "tl" || m_dragMode == "tr" || m_dragMode == "tc") {
+                    double topEdge = newY;
+                    double minDiff = snapThreshold;
+                    double bestTarget = -1.0;
+                    for (double ty : targetsY) {
+                        double diff = std::abs(topEdge - ty);
+                        if (diff < minDiff) { minDiff = diff; bestTarget = ty; }
+                    }
+                    if (bestTarget >= 0.0) {
+                        double bottomEdge = initY + (origH * initSy);
+                        newY = bestTarget;
+                        newH = std::max(10.0, bottomEdge - newY);
+                        m_snapLinesY.push_back(bestTarget);
+                    }
+                }
+            }
+
+            lyr->scaleX = newW / origW;
+            lyr->scaleY = newH / origH;
+            lyr->offsetX = newX;
+            lyr->offsetY = newY;
 
             if (lyr->lockAspect) {
                 if (m_dragMode == "br" || m_dragMode == "tl" || m_dragMode == "tr" || m_dragMode == "bl") {

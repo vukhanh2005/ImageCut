@@ -29,11 +29,33 @@ TopBarPanel::TopBarPanel(QWidget* parent)
     connect(btnRedo, &QPushButton::clicked, this, &TopBarPanel::redoSignal);
     layout->addWidget(btnRedo);
 
-    btnSnap = new QPushButton("🧲 Snap", this);
+    btnSnap = new QPushButton("🧲 Snap: ON", this);
     btnSnap->setCheckable(true);
     btnSnap->setChecked(true);
     btnSnap->setToolTip("Toggle Magnet Snapping to Canvas & Layer Edges");
-    connect(btnSnap, &QPushButton::toggled, this, &TopBarPanel::toggleSnapSignal);
+
+    auto updateSnapStyle = [this](bool checked) {
+        if (checked) {
+            btnSnap->setText("🧲 Snap: ON");
+            btnSnap->setStyleSheet(
+                "QPushButton { background-color: #6C5CE7; color: white; border: 1px solid #A29BFE; border-radius: 6px; font-weight: bold; padding: 4px 10px; }"
+                "QPushButton:hover { background-color: #5B4BC4; }"
+            );
+        } else {
+            btnSnap->setText("🧲 Snap: OFF");
+            btnSnap->setStyleSheet(
+                "QPushButton { background-color: #2D3748; color: #A0AEC0; border: 1px solid #4A5568; border-radius: 6px; font-weight: normal; padding: 4px 10px; }"
+                "QPushButton:hover { background-color: #3A475D; color: white; }"
+            );
+        }
+    };
+
+    updateSnapStyle(true);
+
+    connect(btnSnap, &QPushButton::toggled, [this, updateSnapStyle](bool checked) {
+        updateSnapStyle(checked);
+        emit toggleSnapSignal(checked);
+    });
     layout->addWidget(btnSnap);
 
     QFrame* sep = new QFrame(this);
