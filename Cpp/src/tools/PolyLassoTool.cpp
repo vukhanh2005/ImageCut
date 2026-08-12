@@ -109,27 +109,20 @@ void PolyLassoTool::finishPolygon() {
         cv::fillPoly(polyMask, polys, cv::Scalar(255));
 
         cv::Mat mask;
-        if (lyr->mask.empty()) {
-            if (m_mode == "Keep") {
-                // Keep mode on fresh layer: mask is 0 everywhere, 255 inside polygon
-                mask = polyMask.clone();
-            } else {
-                // Remove mode on fresh layer: mask is 255 everywhere, 0 inside polygon
-                mask = cv::Mat(h, w, CV_8UC1, cv::Scalar(255));
-                for (int y = 0; y < h; ++y) {
-                    for (int x = 0; x < w; ++x) {
-                        if (polyMask.at<uint8_t>(y, x) > 0) {
-                            mask.at<uint8_t>(y, x) = 0;
-                        }
-                    }
-                }
-            }
+        if (m_mode == "Keep") {
+            // Keep mode: Keep inside polygon (255), Erase outside polygon (0)
+            mask = polyMask.clone();
         } else {
-            mask = lyr->mask.clone();
+            // Remove mode: Erase inside polygon (0), Keep outside polygon untouched
+            if (lyr->mask.empty()) {
+                mask = cv::Mat(h, w, CV_8UC1, cv::Scalar(255));
+            } else {
+                mask = lyr->mask.clone();
+            }
             for (int y = 0; y < h; ++y) {
                 for (int x = 0; x < w; ++x) {
                     if (polyMask.at<uint8_t>(y, x) > 0) {
-                        mask.at<uint8_t>(y, x) = (m_mode == "Keep") ? 255 : 0;
+                        mask.at<uint8_t>(y, x) = 0;
                     }
                 }
             }

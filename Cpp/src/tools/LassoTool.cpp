@@ -41,9 +41,7 @@ void LassoTool::mouseRelease(const QPointF& imgPos, QMouseEvent* event) {
                 int h = lyr->height();
                 int w = lyr->width();
 
-                cv::Mat mask = !lyr->mask.empty() ? lyr->mask.clone() : cv::Mat(h, w, CV_8UC1, cv::Scalar(255));
                 std::vector<cv::Point> ptsNp;
-
                 for (const auto& p : m_points) {
                     auto [lx, ly] = doc->mapCanvasPosToLayerPos(p, lyr);
                     ptsNp.push_back(cv::Point(static_cast<int>(std::round(lx)), static_cast<int>(std::round(ly))));
@@ -53,10 +51,16 @@ void LassoTool::mouseRelease(const QPointF& imgPos, QMouseEvent* event) {
                 std::vector<std::vector<cv::Point>> polys = { ptsNp };
                 cv::fillPoly(polyMask, polys, cv::Scalar(255));
 
-                for (int y = 0; y < h; ++y) {
-                    for (int x = 0; x < w; ++x) {
-                        if (polyMask.at<uint8_t>(y, x) > 0) {
-                            mask.at<uint8_t>(y, x) = (m_mode == "Remove") ? 0 : 255;
+                cv::Mat mask;
+                if (m_mode == "Keep") {
+                    mask = polyMask.clone();
+                } else {
+                    mask = !lyr->mask.empty() ? lyr->mask.clone() : cv::Mat(h, w, CV_8UC1, cv::Scalar(255));
+                    for (int y = 0; y < h; ++y) {
+                        for (int x = 0; x < w; ++x) {
+                            if (polyMask.at<uint8_t>(y, x) > 0) {
+                                mask.at<uint8_t>(y, x) = 0;
+                            }
                         }
                     }
                 }
