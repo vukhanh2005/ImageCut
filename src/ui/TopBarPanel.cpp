@@ -1,4 +1,5 @@
 #include "ui/TopBarPanel.h"
+#include "ui/Style.h"
 #include <QHBoxLayout>
 
 namespace ImageCut {
@@ -14,35 +15,38 @@ TopBarPanel::TopBarPanel(QWidget* parent)
     layout->setContentsMargins(12, 6, 12, 6);
     layout->setSpacing(10);
 
-    QPushButton* btnOpen = new QPushButton("📁 Open Image", this);
+    QPushButton* btnOpen = new QPushButton(" Open Image", this);
+    btnOpen->setIcon(UIIcons::getIcon("add_image", QColor(220, 230, 245), 20));
     btnOpen->setToolTip("Open Image File (Ctrl+O)");
     connect(btnOpen, &QPushButton::clicked, this, &TopBarPanel::openSignal);
     layout->addWidget(btnOpen);
 
-    btnUndo = new QPushButton("↩️ Undo", this);
+    btnUndo = new QPushButton(" Undo", this);
+    btnUndo->setIcon(UIIcons::getIcon("undo", QColor(220, 230, 245), 20));
     btnUndo->setToolTip("Undo Last Action (Ctrl+Z)");
     connect(btnUndo, &QPushButton::clicked, this, &TopBarPanel::undoSignal);
     layout->addWidget(btnUndo);
 
-    btnRedo = new QPushButton("↪️ Redo", this);
+    btnRedo = new QPushButton(" Redo", this);
+    btnRedo->setIcon(UIIcons::getIcon("redo", QColor(220, 230, 245), 20));
     btnRedo->setToolTip("Redo (Ctrl+Shift+Z)");
     connect(btnRedo, &QPushButton::clicked, this, &TopBarPanel::redoSignal);
     layout->addWidget(btnRedo);
 
-    btnSnap = new QPushButton("🧲 Snap: ON", this);
+    btnSnap = new QPushButton(" Snap: ON", this);
     btnSnap->setCheckable(true);
     btnSnap->setChecked(true);
     btnSnap->setToolTip("Toggle Magnet Snapping to Canvas & Layer Edges");
 
     auto updateSnapStyle = [this](bool checked) {
         if (checked) {
-            btnSnap->setText("🧲 Snap: ON");
+            btnSnap->setText(" Snap: ON");
             btnSnap->setStyleSheet(
                 "QPushButton { background-color: #6C5CE7; color: white; border: 1px solid #A29BFE; border-radius: 6px; font-weight: bold; padding: 4px 10px; }"
                 "QPushButton:hover { background-color: #5B4BC4; }"
             );
         } else {
-            btnSnap->setText("🧲 Snap: OFF");
+            btnSnap->setText(" Snap: OFF");
             btnSnap->setStyleSheet(
                 "QPushButton { background-color: #2D3748; color: #A0AEC0; border: 1px solid #4A5568; border-radius: 6px; font-weight: normal; padding: 4px 10px; }"
                 "QPushButton:hover { background-color: #3A475D; color: white; }"
@@ -63,7 +67,8 @@ TopBarPanel::TopBarPanel(QWidget* parent)
     sep->setStyleSheet("color: #2D3748;");
     layout->addWidget(sep);
 
-    btnAutoRemove = new QPushButton("✨ Auto Remove BG", this);
+    btnAutoRemove = new QPushButton(" Auto Remove BG", this);
+    btnAutoRemove->setIcon(UIIcons::getIcon("ai_auto", QColor(255, 255, 255), 20));
     btnAutoRemove->setObjectName("btn_primary");
     btnAutoRemove->setToolTip("Run AI Model to Remove Background");
     btnAutoRemove->setFixedHeight(38);
@@ -81,12 +86,14 @@ TopBarPanel::TopBarPanel(QWidget* parent)
 
     layout->addStretch();
 
-    QPushButton* btnBatch = new QPushButton("⚡ Batch Removal", this);
+    QPushButton* btnBatch = new QPushButton(" Batch Removal", this);
+    btnBatch->setIcon(UIIcons::getIcon("ai_auto", QColor(220, 230, 245), 20));
     btnBatch->setToolTip("Process Folder of Multiple Images");
     connect(btnBatch, &QPushButton::clicked, this, &TopBarPanel::batchSignal);
     layout->addWidget(btnBatch);
 
-    QPushButton* btnExport = new QPushButton("💾 Export Image", this);
+    QPushButton* btnExport = new QPushButton(" Export Image", this);
+    btnExport->setIcon(UIIcons::getIcon("export", QColor(220, 230, 245), 20));
     btnExport->setToolTip("Export Result Image (Ctrl+E)");
     connect(btnExport, &QPushButton::clicked, this, &TopBarPanel::exportSignal);
     layout->addWidget(btnExport);

@@ -1,4 +1,5 @@
 #include "ui/ToolBarPanel.h"
+#include "ui/Style.h"
 #include <QVBoxLayout>
 #include <vector>
 
@@ -22,23 +23,25 @@ ToolBarPanel::ToolBarPanel(QWidget* parent)
     struct ToolItem {
         QString id;
         QString tooltip;
-        QString iconStr;
+        QString iconName;
     };
 
     std::vector<ToolItem> tools = {
-        { "Select", "Select & Pan Tool (H / Space)", "✋" },
-        { "Brush", "Restore Brush Tool (B)", "🖌️" },
-        { "Eraser", "Eraser Tool (E)", "🧹" },
-        { "RefineEdge", "Refine Edge Hair Matting Tool (R)", "💇" },
-        { "MagicWand", "Magic Wand Color Select (W)", "🪄" },
-        { "Eyedropper", "Eyedropper Color Picker Tool (I)", "💉" },
-        { "Lasso", "Freehand Lasso Tool (L)", "✂️" },
-        { "PolyLasso", "Point-to-Point Polygon Keep/Remove Tool (P)", "🪡" },
-        { "Crop", "Crop Canvas Tool (C)", "🖼️" }
+        { "Select", "Select & Pan Tool (H / Space)", "select" },
+        { "Brush", "Restore Brush Tool (B)", "brush" },
+        { "Eraser", "Eraser Tool (E)", "eraser" },
+        { "RefineEdge", "Refine Edge Hair Matting Tool (R)", "refine_edge" },
+        { "MagicWand", "Magic Wand Color Select (W)", "magic_wand" },
+        { "Eyedropper", "Eyedropper Color Picker Tool (I)", "eyedropper" },
+        { "Lasso", "Freehand Lasso Tool (L)", "lasso" },
+        { "PolyLasso", "Point-to-Point Polygon Keep/Remove Tool (P)", "poly_lasso" },
+        { "Crop", "Crop Canvas Tool (C)", "crop" }
     };
 
     for (const auto& item : tools) {
-        QPushButton* btn = new QPushButton(item.iconStr, this);
+        QPushButton* btn = new QPushButton(this);
+        btn->setIcon(UIIcons::getIcon(item.iconName, QColor(200, 210, 225), 24));
+        btn->setIconSize(QSize(22, 22));
         btn->setObjectName("btn_tool");
         btn->setCheckable(true);
         btn->setToolTip(item.tooltip);
