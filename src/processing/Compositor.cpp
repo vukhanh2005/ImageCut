@@ -187,10 +187,25 @@ cv::Mat Compositor::renderTextLayer(const Core::Layer& lyr) {
     font.setItalic(lyr.fontItalic);
 
     QFontMetrics fm(font);
-    int textW = fm.horizontalAdvance(text);
-    int textH = fm.height();
-
     int margin = 20 + (lyr.textHasStroke ? lyr.textStrokeWidth * 2 : 0) + (lyr.textHasShadow ? 15 : 0);
+
+    int textW = 0;
+    int textH = 0;
+    int wrapWidth = lyr.textWrapWidth;
+
+    int alignFlag = Qt::AlignLeft;
+    if (lyr.textAlignment == 1) alignFlag = Qt::AlignHCenter;
+    else if (lyr.textAlignment == 2) alignFlag = Qt::AlignRight;
+
+    if (wrapWidth > 0) {
+        textW = wrapWidth;
+        QRect boundingRect = fm.boundingRect(QRect(0, 0, wrapWidth, 10000), Qt::TextWordWrap | alignFlag, text);
+        textH = std::max(fm.height(), boundingRect.height());
+    } else {
+        textW = fm.horizontalAdvance(text);
+        textH = fm.height();
+    }
+
     int w = std::max(40, textW + margin * 2);
     int h = std::max(30, textH + margin * 2);
 
@@ -209,24 +224,25 @@ cv::Mat Compositor::renderTextLayer(const Core::Layer& lyr) {
         painter.drawRoundedRect(bgRect, 6, 6);
     }
 
+    int textFlags = alignFlag | (wrapWidth > 0 ? Qt::TextWordWrap : Qt::AlignVCenter);
+
     if (lyr.textHasShadow) {
-        QPainterPath shadowPath;
-        shadowPath.addText(drawBox.left(), drawBox.top() + fm.ascent(), font, text);
-        QTransform trans;
-        trans.translate(lyr.textShadowOffsetX, lyr.textShadowOffsetY);
-        QPainterPath shiftedShadow = trans.map(shadowPath);
-        painter.fillPath(shiftedShadow, lyr.textShadowColor);
+        QRectF shadowBox = drawBox.translated(lyr.textShadowOffsetX, lyr.textShadowOffsetY);
+        painter.setPen(lyr.textShadowColor);
+        painter.setFont(font);
+        painter.drawText(shadowBox, textFlags, text);
     }
 
-    QPainterPath path;
-    path.addText(drawBox.left(), drawBox.top() + fm.ascent(), font, text);
-
     if (lyr.textHasStroke && lyr.textStrokeWidth > 0) {
+        QPainterPath path;
+        path.addText(drawBox.left(), drawBox.top() + fm.ascent(), font, text);
         QPen strokePen(lyr.textStrokeColor, lyr.textStrokeWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
         painter.strokePath(path, strokePen);
     }
 
-    painter.fillPath(path, lyr.textColor);
+    painter.setPen(lyr.textColor);
+    painter.setFont(font);
+    painter.drawText(drawBox, textFlags, text);
     painter.end();
 
     QImage swp = img.convertToFormat(QImage::Format_RGBA8888);

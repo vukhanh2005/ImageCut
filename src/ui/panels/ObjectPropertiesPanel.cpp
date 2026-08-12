@@ -197,6 +197,81 @@ QWidget* ObjectPropertiesPanel::createTextPropertiesWidget() {
     hFontOpt->addWidget(m_btnItalic);
 
     vFont->addLayout(hFontOpt);
+
+    QHBoxLayout* hAlign = new QHBoxLayout();
+    hAlign->addWidget(new QLabel("Align:", grpFont));
+
+    m_btnAlignLeft = new QPushButton("⬅️", grpFont);
+    m_btnAlignLeft->setCheckable(true);
+    m_btnAlignLeft->setFixedSize(30, 28);
+    connect(m_btnAlignLeft, &QPushButton::clicked, [this]() {
+        if (m_updatingUi || !m_document) return;
+        auto lyr = m_document->getActiveLayer();
+        if (lyr && lyr->layerType == "text") {
+            lyr->textAlignment = 0;
+            m_btnAlignLeft->setChecked(true);
+            m_btnAlignCenter->setChecked(false);
+            m_btnAlignRight->setChecked(false);
+            lyr->invalidateCache();
+            m_document->notifyChanged();
+        }
+    });
+    hAlign->addWidget(m_btnAlignLeft);
+
+    m_btnAlignCenter = new QPushButton("↔️", grpFont);
+    m_btnAlignCenter->setCheckable(true);
+    m_btnAlignCenter->setFixedSize(30, 28);
+    connect(m_btnAlignCenter, &QPushButton::clicked, [this]() {
+        if (m_updatingUi || !m_document) return;
+        auto lyr = m_document->getActiveLayer();
+        if (lyr && lyr->layerType == "text") {
+            lyr->textAlignment = 1;
+            m_btnAlignLeft->setChecked(false);
+            m_btnAlignCenter->setChecked(true);
+            m_btnAlignRight->setChecked(false);
+            lyr->invalidateCache();
+            m_document->notifyChanged();
+        }
+    });
+    hAlign->addWidget(m_btnAlignCenter);
+
+    m_btnAlignRight = new QPushButton("➡️", grpFont);
+    m_btnAlignRight->setCheckable(true);
+    m_btnAlignRight->setFixedSize(30, 28);
+    connect(m_btnAlignRight, &QPushButton::clicked, [this]() {
+        if (m_updatingUi || !m_document) return;
+        auto lyr = m_document->getActiveLayer();
+        if (lyr && lyr->layerType == "text") {
+            lyr->textAlignment = 2;
+            m_btnAlignLeft->setChecked(false);
+            m_btnAlignCenter->setChecked(false);
+            m_btnAlignRight->setChecked(true);
+            lyr->invalidateCache();
+            m_document->notifyChanged();
+        }
+    });
+    hAlign->addWidget(m_btnAlignRight);
+    hAlign->addStretch();
+    vFont->addLayout(hAlign);
+
+    QHBoxLayout* hWrap = new QHBoxLayout();
+    hWrap->addWidget(new QLabel("Box Wrap Width:", grpFont));
+    m_spnWrapWidth = new QSpinBox(grpFont);
+    m_spnWrapWidth->setRange(0, 3000);
+    m_spnWrapWidth->setSpecialValueText("Auto (Single Line)");
+    m_spnWrapWidth->setSuffix(" px");
+    connect(m_spnWrapWidth, QOverload<int>::of(&QSpinBox::valueChanged), [this](int val) {
+        if (m_updatingUi || !m_document) return;
+        auto lyr = m_document->getActiveLayer();
+        if (lyr && lyr->layerType == "text") {
+            lyr->textWrapWidth = val;
+            lyr->invalidateCache();
+            m_document->notifyChanged();
+        }
+    });
+    hWrap->addWidget(m_spnWrapWidth, 1);
+    vFont->addLayout(hWrap);
+
     v->addWidget(grpFont);
 
     // 3. Text Color & Styling Group
@@ -490,6 +565,11 @@ void ObjectPropertiesPanel::updateProperties() {
         m_spnFontSize->setValue(lyr->fontSize);
         m_btnBold->setChecked(lyr->fontBold);
         m_btnItalic->setChecked(lyr->fontItalic);
+
+        m_btnAlignLeft->setChecked(lyr->textAlignment == 0);
+        m_btnAlignCenter->setChecked(lyr->textAlignment == 1);
+        m_btnAlignRight->setChecked(lyr->textAlignment == 2);
+        m_spnWrapWidth->setValue(lyr->textWrapWidth);
 
         m_btnTextColor->setStyleSheet(QString("background-color: %1; border: 1px solid #4A5568; border-radius: 4px;").arg(lyr->textColor.name()));
 

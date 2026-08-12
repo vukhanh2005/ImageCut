@@ -522,10 +522,10 @@ void CanvasView::mouseMoveEvent(QMouseEvent* event) {
             }
 
             if (lyr->layerType == "text") {
-                double scaleFactor = (newW / origW + newH / origH) / 2.0;
-                int newFontSize = std::max(6, static_cast<int>(std::round(initFontSize * scaleFactor)));
-                if (newFontSize != lyr->fontSize) {
-                    lyr->fontSize = newFontSize;
+                int margin = 20 + (lyr->textHasStroke ? lyr->textStrokeWidth * 2 : 0) + (lyr->textHasShadow ? 15 : 0);
+                int targetWrapW = std::max(40, static_cast<int>(std::round(newW - margin * 2)));
+                if (targetWrapW != lyr->textWrapWidth) {
+                    lyr->textWrapWidth = targetWrapW;
                     lyr->scaleX = 1.0;
                     lyr->scaleY = 1.0;
                     lyr->invalidateCache();

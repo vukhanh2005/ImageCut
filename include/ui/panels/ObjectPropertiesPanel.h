@@ -50,6 +50,10 @@ private:
     QSpinBox* m_spnFontSize = nullptr;
     QPushButton* m_btnBold = nullptr;
     QPushButton* m_btnItalic = nullptr;
+    QPushButton* m_btnAlignLeft = nullptr;
+    QPushButton* m_btnAlignCenter = nullptr;
+    QPushButton* m_btnAlignRight = nullptr;
+    QSpinBox* m_spnWrapWidth = nullptr;
     QPushButton* m_btnTextColor = nullptr;
 
     QCheckBox* m_chkTextStroke = nullptr;

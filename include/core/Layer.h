@@ -92,6 +92,10 @@ public:
     bool textHasBg = false;
     QColor textBgColor = QColor(0, 0, 0, 180);
 
+    // Text Word Wrap & Alignment
+    int textWrapWidth = 0; // 0 = Auto width, >0 = Word Wrap Width
+    int textAlignment = 0; // 0 = Left, 1 = Center, 2 = Right
+
     // Shape Properties
     QString shapeType = "Rectangle"; // "Rectangle", "RoundedRectangle", "Circle", "Arrow", "Star", "SpeechBubble"
     QColor fillColor = QColor(0, 120, 215, 255);

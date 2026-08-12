@@ -39,12 +39,15 @@ int Layer::width() const {
         return image.cols;
     }
     if (layerType == "text") {
+        int margin = 30 + (textHasStroke ? textStrokeWidth * 2 : 0) + (textHasShadow ? 20 : 0);
+        if (textWrapWidth > 0) {
+            return std::max(60, textWrapWidth + margin * 2);
+        }
         QFont font(fontFamily.isEmpty() ? "Segoe UI" : fontFamily, fontSize);
         font.setBold(fontBold);
         font.setItalic(fontItalic);
         QFontMetrics fm(font);
         int tw = fm.horizontalAdvance(textContent.isEmpty() ? "Sample Text" : textContent);
-        int margin = 30 + (textHasStroke ? textStrokeWidth * 2 : 0) + (textHasShadow ? 20 : 0);
         return std::max(40, tw + margin * 2);
     }
     return 240;
@@ -58,12 +61,17 @@ int Layer::height() const {
         return image.rows;
     }
     if (layerType == "text") {
+        int margin = 30 + (textHasStroke ? textStrokeWidth * 2 : 0) + (textHasShadow ? 20 : 0);
         QFont font(fontFamily.isEmpty() ? "Segoe UI" : fontFamily, fontSize);
         font.setBold(fontBold);
         font.setItalic(fontItalic);
         QFontMetrics fm(font);
+        QString txt = textContent.isEmpty() ? "Sample Text" : textContent;
+        if (textWrapWidth > 0) {
+            QRect br = fm.boundingRect(QRect(0, 0, textWrapWidth, 10000), Qt::TextWordWrap, txt);
+            return std::max(30, br.height() + margin * 2);
+        }
         int th = fm.height();
-        int margin = 30 + (textHasStroke ? textStrokeWidth * 2 : 0) + (textHasShadow ? 20 : 0);
         return std::max(30, th + margin * 2);
     }
     return 240;
@@ -115,6 +123,8 @@ std::shared_ptr<Layer> Layer::clone() const {
     newLayer->fontBold = fontBold;
     newLayer->fontItalic = fontItalic;
     newLayer->textColor = textColor;
+    newLayer->textWrapWidth = textWrapWidth;
+    newLayer->textAlignment = textAlignment;
 
     newLayer->shapeType = shapeType;
     newLayer->fillColor = fillColor;
